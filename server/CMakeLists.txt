@@ -5,7 +5,8 @@ include_directories(include/)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(server src/main.c)
 add_executable(server src/main.c
         src/listener.c
         include/listener.h
+        src/logger.c
+        include/logger.h)
