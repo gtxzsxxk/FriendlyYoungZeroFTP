@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "listener.h"
 
 void usage(void) {
     printf("%s", "server error: bad arguments\n\n");
@@ -47,5 +48,6 @@ int main(int argc, char **argv) {
 
     printf("server info: listening on port %d\n", port);
     printf("server info: root filesystem %s\n", root_path);
-    return 0;
+
+    return listen_blocking();
 }
