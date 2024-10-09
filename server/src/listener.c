@@ -1,14 +1,15 @@
+#include "listener.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
-
 #include <unistd.h>
 #include <errno.h>
-
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
+#include "logger.h"
 
-int listen_blocking(void) {
+
+int listen_blocking(int port) {
     int listen_fd, conn_fd;        //监听socket和连接socket不一样，后者用于数据传输
     struct sockaddr_in addr;
     char sentence[8192];
@@ -17,25 +18,25 @@ int listen_blocking(void) {
 
     //创建socket
     if ((listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+        logger_err("Error socket(): %s(%d)\n", strerror(errno), errno);
         return 1;
     }
 
     //设置本机的ip和port
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = 6789;
+    addr.sin_port = port;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);    //监听"0.0.0.0"
 
     //将本机的ip和port与socket绑定
     if (bind(listen_fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        printf("Error bind(): %s(%d)\n", strerror(errno), errno);
+        logger_err("Error bind(): %s(%d)\n", strerror(errno), errno);
         return 1;
     }
 
     //开始监听socket
     if (listen(listen_fd, 10) == -1) {
-        printf("Error listen(): %s(%d)\n", strerror(errno), errno);
+        logger_err("Error listen(): %s(%d)\n", strerror(errno), errno);
         return 1;
     }
 
@@ -89,4 +90,5 @@ int listen_blocking(void) {
     }
 
     close(listen_fd);
+    return 0;
 }
