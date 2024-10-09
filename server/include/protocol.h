@@ -30,4 +30,6 @@ void protocol_client_free(int fd);
 
 struct client_data *protocol_client_by_fd(int fd);
 
+void protocol_on_recv(int fd);
+
 #endif //SERVER_PROTOCOL_H

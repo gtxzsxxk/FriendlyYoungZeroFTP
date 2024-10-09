@@ -4,6 +4,7 @@
 
 #include "../include/protocol.h"
 #include <string.h>
+#include "logger.h"
 
 const char *BANNER_STRING = "Welcome to Friendly Young Zero FTP Server!";
 
@@ -47,4 +48,9 @@ struct client_data *protocol_client_by_fd(int fd) {
     }
 
     return &clients[index];
+}
+
+void protocol_on_recv(int fd) {
+    struct client_data *client = protocol_client_by_fd(fd);
+    logger_info("receive data: %s", client->cmd_request);
 }
