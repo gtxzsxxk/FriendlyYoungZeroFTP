@@ -50,5 +50,5 @@ int main(int argc, char **argv) {
     logger_info("listening on port %d", port);
     logger_info("root filesystem %s", root_path);
 
-    return listen_blocking(port);
+    return start_listen(port);
 }
