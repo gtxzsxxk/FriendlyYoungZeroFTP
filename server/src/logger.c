@@ -55,6 +55,7 @@ void logger_err(const char *format, ...) {
 
 void logger_init(void) {
     pthread_mutex_init(&lock, NULL);
+    setbuf(stdout, NULL);
 }
 
 void logger_exit(void) {

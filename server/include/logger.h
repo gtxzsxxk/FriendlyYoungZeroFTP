@@ -11,4 +11,8 @@ void logger_info(const char *fmt, ...);
 
 void logger_err(const char *fmt, ...);
 
+void logger_init(void);
+
+void logger_exit(void);
+
 #endif //SERVER_LOGGER_H

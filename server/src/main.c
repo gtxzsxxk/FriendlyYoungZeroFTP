@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    logger_init();
+
     logger_info("listening on port %d", port);
     logger_info("root filesystem %s", root_path);
 
