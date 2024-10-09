@@ -9,4 +9,6 @@ add_executable(server src/main.c
         src/listener.c
         include/listener.h
         src/logger.c
-        include/logger.h)
+        include/logger.h
+        src/protocol.c
+        include/protocol.h)
