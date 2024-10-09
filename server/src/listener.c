@@ -1,94 +1,46 @@
 #include "listener.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
+#include <poll.h>
 #include "logger.h"
 
+#define MAX_CLIENTS 100
+
+static void set_fd_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
 
 int listen_blocking(int port) {
-    int listen_fd, conn_fd;        //监听socket和连接socket不一样，后者用于数据传输
+    int server_fd;
     struct sockaddr_in addr;
-    char sentence[8192];
-    int p;
-    int len;
+    struct pollfd fds[MAX_CLIENTS];
+    int nfds = 1;
 
     //创建socket
-    if ((listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
         logger_err("Error socket(): %s(%d)\n", strerror(errno), errno);
         return 1;
     }
+    set_fd_nonblocking(server_fd);
 
     //设置本机的ip和port
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = port;
+    addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);    //监听"0.0.0.0"
 
     //将本机的ip和port与socket绑定
-    if (bind(listen_fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+    if (bind(server_fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
         logger_err("Error bind(): %s(%d)\n", strerror(errno), errno);
         return 1;
     }
 
-    //开始监听socket
-    if (listen(listen_fd, 10) == -1) {
-        logger_err("Error listen(): %s(%d)\n", strerror(errno), errno);
-        return 1;
-    }
-
-    //持续监听连接请求
-    while (1) {
-        //等待client的连接 -- 阻塞函数
-        if ((conn_fd = accept(listen_fd, NULL, NULL)) == -1) {
-            printf("Error accept(): %s(%d)\n", strerror(errno), errno);
-            continue;
-        }
-
-        //榨干socket传来的内容
-        p = 0;
-        while (1) {
-            int n = read(conn_fd, sentence + p, 8191 - p);
-            if (n < 0) {
-                printf("Error read(): %s(%d)\n", strerror(errno), errno);
-                close(conn_fd);
-                continue;
-            } else if (n == 0) {
-                break;
-            } else {
-                p += n;
-                if (sentence[p - 1] == '\n') {
-                    break;
-                }
-            }
-        }
-        //socket接收到的字符串并不会添加'\0'
-        sentence[p - 1] = '\0';
-        len = p - 1;
-
-        //字符串处理
-        for (p = 0; p < len; p++) {
-            sentence[p] = toupper(sentence[p]);
-        }
-
-        //发送字符串到socket
-        p = 0;
-        while (p < len) {
-            int n = write(conn_fd, sentence + p, len + 1 - p);
-            if (n < 0) {
-                printf("Error write(): %s(%d)\n", strerror(errno), errno);
-                return 1;
-            } else {
-                p += n;
-            }
-        }
-
-        close(conn_fd);
-    }
-
-    close(listen_fd);
     return 0;
 }
