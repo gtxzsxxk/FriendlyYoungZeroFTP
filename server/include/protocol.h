@@ -20,6 +20,7 @@ struct client_data {
     /* 解决粘包，根据CRLF进行切分 */
     int recv_ptr;
     char cmd_request_buffer[512];
+    char cmd_request[512];
     char cmd_send[512];
 };
 
