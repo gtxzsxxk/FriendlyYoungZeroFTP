@@ -76,10 +76,25 @@ int start_listen(int port) {
                         logger_err("Cannot find the client with fd %d", fds[i].fd);
                         continue;
                     }
-                    int rev_cnt = recv(fds[client->nfds].fd, client->cmd_request_buffer, 512, 0);
+                    int rev_cnt = recv(fds[client->nfds].fd, client->cmd_request_buffer + client->recv_ptr, 512, 0);
                     if (rev_cnt > 0) {
-                        client->recv_ptr = rev_cnt;
-
+                        client->recv_ptr += rev_cnt;
+                        int crlf = 0, find_crlf = 0;
+                        for (; crlf < client->recv_ptr - 1; crlf++) {
+                            if (client->cmd_request_buffer[crlf] == '\r' &&
+                                client->cmd_request_buffer[crlf + 1] == '\n') {
+                                crlf++;
+                                find_crlf = 1;
+                                break;
+                            }
+                        }
+                        if (find_crlf) {
+                            memcpy(client->cmd_request, client->cmd_request_buffer, crlf + 1);
+                            memcpy(client->cmd_request_buffer, client->cmd_request_buffer + crlf + 1,
+                                   client->recv_ptr - crlf - 1);
+                            client->recv_ptr -= crlf + 1;
+                            protocol_on_recv(client->sock_fd);
+                        }
                     } else if (!rev_cnt) {
                         /* close connection */
                         logger_info("client disconnected %s:%d", inet_ntoa(client_addr.sin_addr),
