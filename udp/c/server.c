@@ -7,16 +7,15 @@
 #include <netinet/in.h> /* INET constants and stuff */
 #include <arpa/inet.h>  /* IP address conversion stuff */
 #include <netdb.h>      /* gethostbyname */
+#include <string.h>
 
 #define MAXBUF 1024*1024
 
-void uppercase(char *p) {
-  for ( ; *p; ++p) *p = toupper(*p);
-}
-
 void echo(int sd) {
     char bufin[MAXBUF];
+    char cnt_buf[MAXBUF];
     struct sockaddr_in remote;
+    int counter = 0;
 
     /* need to know how big address struct is, len must be set before the
        call to recvfrom!!! */
@@ -29,9 +28,10 @@ void echo(int sd) {
       if (n < 0) {
         perror("Error receiving data");
       } else {
-        uppercase(bufin);
+        bufin[n] = 0;
+        sprintf(cnt_buf, "%d %s\0", ++counter, bufin);
         /* Got something, just send it back */
-        sendto(sd, bufin, n, 0, (struct sockaddr *)&remote, len);
+        sendto(sd, cnt_buf, strlen(cnt_buf), 0, (struct sockaddr *)&remote, len);
       }
     }
 }
