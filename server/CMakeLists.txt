@@ -15,4 +15,6 @@ add_executable(server src/main.c
         src/ftp.c
         include/ftp.h
         src/filesystem.c
-        include/filesystem.h)
+        include/filesystem.h
+        src/pasv_channel.c
+        include/pasv_channel.h)
