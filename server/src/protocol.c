@@ -106,6 +106,12 @@ void protocol_on_recv(int fd) {
             return;
         }
     }
+    }
+    HANDLE_COMMAND(USER)
+    HANDLE_COMMAND(PASS)
+    HANDLE_COMMAND(PWD)
+    HANDLE_COMMAND(CWD)
+    HANDLE_COMMAND(TYPE)
 
     protocol_client_write_response(client, 504, "State machine failed");
 }

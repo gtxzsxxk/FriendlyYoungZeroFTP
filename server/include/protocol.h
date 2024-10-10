@@ -43,6 +43,12 @@ struct client_data {
     enum ftp_data_type data_type;
 };
 
+#define HANDLE_COMMAND(cmd)     else if (!strcmp(command, #cmd)) { \
+        if (!FTP_##cmd(client, argument)) { \
+            return; \
+        } \
+    }
+
 extern char service_root[];
 
 struct client_data *protocol_client_init(int fd, int nfds);
