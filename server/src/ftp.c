@@ -61,6 +61,9 @@ FTP_FUNC_DEFINE(CWD) {
             int free_flag = 0;
             if (!strcmp(argument, "/")) {
                 fullpath = service_root;
+            } else if (argument[0] == '/') {
+                fullpath = fs_path_join(service_root, argument);
+                free_flag = 1;
             } else if (argument[0] == '.' && argument[1] == '.' && argument[2] == 0) {
                 /* 上一级目录 */
                 fullpath = fs_path_backward(client->cwd);
@@ -94,6 +97,7 @@ FTP_FUNC_DEFINE(CDUP) {
         if (!argument) {
             const char *fullpath = NULL;
             fullpath = fs_path_backward(client->cwd);
+            printf("%s\r\n", fullpath);
             if (fs_directory_exists(fullpath)) {
                 if (fs_directory_allows(service_root, fullpath)) {
                     strcpy(client->cwd, fullpath);
