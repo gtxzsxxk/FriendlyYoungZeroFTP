@@ -57,14 +57,32 @@ FTP_FUNC_DEFINE(PWD) {
 FTP_FUNC_DEFINE(CWD) {
     if (client->ftp_state == LOGGED_IN) {
         if (argument) {
-            const char *fullpath = fs_path_join(service_root, argument);
+            const char *fullpath = NULL;
+            int free_flag = 0;
+            if (!strcmp(argument, "/")) {
+                fullpath = service_root;
+            } else if (argument[0] == '.' && argument[1] == '.' && argument[2] == 0) {
+                /* 上一级目录 */
+                fullpath = fs_path_backward(client->cwd);
+                free_flag = 1;
+            } else {
+                fullpath = fs_path_join(client->cwd, argument);
+                free_flag = 1;
+            }
             if (fs_directory_exists(fullpath)) {
-                strcpy(client->cwd, argument);
-                protocol_client_write_response(client, 250, "Okay.");
+                if (fs_directory_allows(service_root, fullpath)) {
+                    strcpy(client->cwd, fullpath);
+                    protocol_client_write_response(client, 250, "Okay.");
+                } else {
+                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                }
             } else {
                 protocol_client_write_response(client, 550, "No such file or directory.");
             }
-            free((void *) fullpath);
+
+            if (free_flag) {
+                free((void *) fullpath);
+            }
             return 0;
         }
     }
