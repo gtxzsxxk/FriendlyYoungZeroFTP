@@ -18,6 +18,11 @@ enum ftp_state_machine {
     LOGGED_IN,
 };
 
+enum ftp_data_type {
+    ASCII,
+    BINARY
+};
+
 struct client_data {
     int sock_fd;
     int nfds;
@@ -34,6 +39,8 @@ struct client_data {
     char password[64];
 
     char cwd[256];
+
+    enum ftp_data_type data_type;
 };
 
 struct client_data *protocol_client_init(int fd, int nfds);

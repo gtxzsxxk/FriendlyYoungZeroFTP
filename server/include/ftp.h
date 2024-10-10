@@ -13,4 +13,6 @@ int FTP_PASS(struct client_data *client, char *argument);
 
 int FTP_PWD(struct client_data *client, char *argument);
 
+int FTP_TYPE(struct client_data *client, char *argument);
+
 #endif //SERVER_FTP_H

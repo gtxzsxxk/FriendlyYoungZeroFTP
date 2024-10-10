@@ -95,6 +95,10 @@ void protocol_on_recv(int fd) {
         if (!FTP_PWD(client, argument)) {
             return;
         }
+    } else if (!strcmp(command, "TYPE")) {
+        if (!FTP_TYPE(client, argument)) {
+            return;
+        }
     }
 
     protocol_client_write_response(client, 504, "State machine failed");

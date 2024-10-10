@@ -47,3 +47,25 @@ int FTP_PWD(struct client_data *client, char *argument) {
 
     return 1;
 }
+
+int FTP_TYPE(struct client_data *client, char *argument) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            if (!strcmp(argument, "A")) {
+                client->data_type = ASCII;
+                protocol_client_write_response(client, 200, "Type set to Ascii");
+                return 0;
+            } else if (!strcmp(argument, "I")) {
+                client->data_type = BINARY;
+                protocol_client_write_response(client, 200, "Type set to I");
+                return 0;
+            } else if (!strcmp(argument, "L")) {
+                client->data_type = BINARY;
+                protocol_client_write_response(client, 200, "Type set to L");
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
