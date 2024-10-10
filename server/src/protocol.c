@@ -43,8 +43,10 @@ static void protocol_client_write_welcome_message(struct client_data *client, co
 struct client_data *protocol_client_init(int fd, int nfds) {
     /* 分配一个新的 client_data */
     int index = protocol_client_index_by_fd(fd);
+    memset(&clients[index], 0, sizeof(struct client_data));
     clients[index].sock_fd = fd;
     clients[index].nfds = nfds;
+    clients[index].cwd[0] = '/';
 
     protocol_client_write_response(&clients[index], 220, BANNER_STRING);
 

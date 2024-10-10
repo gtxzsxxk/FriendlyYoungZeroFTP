@@ -32,6 +32,8 @@ struct client_data {
 
     char username[20];
     char password[64];
+
+    char cwd[256];
 };
 
 struct client_data *protocol_client_init(int fd, int nfds);
