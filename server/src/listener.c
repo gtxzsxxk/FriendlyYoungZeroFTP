@@ -106,7 +106,7 @@ int start_listen(int port) {
                 }
 
                 if (client && client->sock_fd) {
-                    if (client->state == NEED_SEND) {
+                    if (client->net_state == NEED_SEND) {
                         fds[client->nfds].events = POLLOUT;
                     }
                 }
@@ -127,7 +127,7 @@ int start_listen(int port) {
                 /* 恢复 POLLIN */
                 fds[i].events = POLLIN;
 
-                client->state = IDLE;
+                client->net_state = IDLE;
             }
         }
     }
