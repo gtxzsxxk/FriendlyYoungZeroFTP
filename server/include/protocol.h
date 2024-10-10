@@ -43,6 +43,8 @@ struct client_data {
     enum ftp_data_type data_type;
 };
 
+extern char service_root[];
+
 struct client_data *protocol_client_init(int fd, int nfds);
 
 void protocol_client_free(int fd);

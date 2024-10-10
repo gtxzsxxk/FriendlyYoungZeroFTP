@@ -12,6 +12,8 @@
 
 const char *BANNER_STRING = "Welcome to Friendly Young Zero FTP Server!";
 
+char service_root[256];
+
 static struct client_data clients[MAX_CLIENTS] = {0};
 
 static int protocol_client_index_by_fd(int fd) {

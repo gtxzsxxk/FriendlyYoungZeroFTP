@@ -3,6 +3,7 @@
 #include <string.h>
 #include "listener.h"
 #include "logger.h"
+#include "protocol.h"
 
 void usage(void) {
     printf("%s", "server error: bad arguments\n\n");
@@ -52,5 +53,6 @@ int main(int argc, char **argv) {
     logger_info("listening on port %d", port);
     logger_info("root filesystem %s", root_path);
 
+    strcpy(service_root, root_path);
     return start_listen(port);
 }
