@@ -117,7 +117,7 @@ static void *pasv_thread(void *args) {
     socklen_t client_len = sizeof(client_addr);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        pthread_mutex_init(&client->lock, NULL);
+        pthread_mutex_init(&(pasv_clients[i].lock), NULL);
     }
 
     sem_init(&not_empty_sem, 0, 0);
