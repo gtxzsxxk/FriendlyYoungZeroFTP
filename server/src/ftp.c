@@ -89,6 +89,29 @@ FTP_FUNC_DEFINE(CWD) {
     return 1;
 }
 
+FTP_FUNC_DEFINE(CDUP) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (!argument) {
+            const char *fullpath = NULL;
+            fullpath = fs_path_backward(client->cwd);
+            if (fs_directory_exists(fullpath)) {
+                if (fs_directory_allows(service_root, fullpath)) {
+                    strcpy(client->cwd, fullpath);
+                    protocol_client_write_response(client, 250, "Okay.");
+                } else {
+                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                }
+            } else {
+                protocol_client_write_response(client, 550, "No such file or directory.");
+            }
+
+            free((void *) fullpath);
+            return 0;
+        }
+    }
+    return 1;
+}
+
 FTP_FUNC_DEFINE(TYPE) {
     if (client->ftp_state == LOGGED_IN) {
         if (argument) {
