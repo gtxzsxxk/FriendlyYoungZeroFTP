@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int FTP_USER(struct client_data *client, char *argument) {
+FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
         strcpy(client->username, argument);
         if (!strtok(NULL, " ")) {
@@ -19,7 +19,7 @@ int FTP_USER(struct client_data *client, char *argument) {
     return 1;
 }
 
-int FTP_PASS(struct client_data *client, char *argument) {
+FTP_FUNC_DEFINE(PASS) {
     if (client->ftp_state == NEED_PASSWORD) {
         strcpy(client->password, argument);
         if (!strtok(NULL, " ")) {
@@ -33,7 +33,7 @@ int FTP_PASS(struct client_data *client, char *argument) {
     return 1;
 }
 
-int FTP_PWD(struct client_data *client, char *argument) {
+FTP_FUNC_DEFINE(PWD) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
             /* TODO: 用macro定义所有code */
@@ -49,6 +49,7 @@ int FTP_PWD(struct client_data *client, char *argument) {
 }
 
 int FTP_TYPE(struct client_data *client, char *argument) {
+FTP_FUNC_DEFINE(TYPE) {
     if (client->ftp_state == LOGGED_IN) {
         if (argument) {
             if (!strcmp(argument, "A")) {

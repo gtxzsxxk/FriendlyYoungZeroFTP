@@ -7,12 +7,16 @@
 
 #include "protocol.h"
 
-int FTP_USER(struct client_data *client, char *argument);
+#define FTP_FUNC_DEFINE(cmd)    int FTP_##cmd(struct client_data *client, char *argument)
 
-int FTP_PASS(struct client_data *client, char *argument);
+FTP_FUNC_DEFINE(USER);
 
-int FTP_PWD(struct client_data *client, char *argument);
+FTP_FUNC_DEFINE(PASS);
+
+FTP_FUNC_DEFINE(PWD);
 
 int FTP_TYPE(struct client_data *client, char *argument);
+
+FTP_FUNC_DEFINE(TYPE);
 
 #endif //SERVER_FTP_H
