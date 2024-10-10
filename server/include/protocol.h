@@ -21,7 +21,6 @@ enum ftp_state_machine {
 struct client_data {
     int sock_fd;
     int nfds;
-    enum ftp_state_machine state;
     enum net_state_machine net_state;
     enum ftp_state_machine ftp_state;
 
@@ -30,6 +29,9 @@ struct client_data {
     char cmd_request_buffer[512];
     char cmd_request[512];
     char cmd_send[512];
+
+    char username[20];
+    char password[64];
 };
 
 struct client_data *protocol_client_init(int fd, int nfds);
@@ -39,5 +41,7 @@ void protocol_client_free(int fd);
 struct client_data *protocol_client_by_fd(int fd);
 
 void protocol_on_recv(int fd);
+
+void protocol_client_write_response(struct client_data *client, int code, const char *data);
 
 #endif //SERVER_PROTOCOL_H
