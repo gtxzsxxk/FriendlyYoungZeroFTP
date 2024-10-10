@@ -41,8 +41,11 @@ FTP_FUNC_DEFINE(PWD) {
         if (!argument) {
             /* TODO: 用macro定义所有code */
             char *resp = malloc(300);
-            sprintf(resp, "\"%s\" is current directory", client->cwd);
+            char *free_handle;
+            const char *rel_path = fs_path_erase(service_root, client->cwd, &free_handle);
+            sprintf(resp, "\"%s\" is current directory", rel_path);
             protocol_client_write_response(client, 257, resp);
+            free(free_handle);
             free(resp);
             return 0;
         }
