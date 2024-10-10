@@ -85,33 +85,13 @@ void protocol_on_recv(int fd) {
     if (!strcmp(command, "AUTH")) {
         protocol_client_write_response(client, 504, "Unknown instruction");
         return;
-    } else if (!strcmp(command, "USER")) {
-        if (!FTP_USER(client, argument)) {
-            return;
-        }
-    } else if (!strcmp(command, "PASS")) {
-        if (!FTP_PASS(client, argument)) {
-            return;
-        }
-    } else if (!strcmp(command, "PWD")) {
-        if (!FTP_PWD(client, argument)) {
-            return;
-        }
-    } else if (!strcmp(command, "CWD")) {
-        if (!FTP_CWD(client, argument)) {
-            return;
-        }
-    } else if (!strcmp(command, "TYPE")) {
-        if (!FTP_TYPE(client, argument)) {
-            return;
-        }
-    }
     }
     HANDLE_COMMAND(USER)
     HANDLE_COMMAND(PASS)
     HANDLE_COMMAND(PWD)
     HANDLE_COMMAND(CWD)
     HANDLE_COMMAND(TYPE)
+    HANDLE_COMMAND(PASV)
 
     protocol_client_write_response(client, 504, "State machine failed");
 }

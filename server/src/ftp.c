@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "filesystem.h"
+#include "pasv_channel.h"
+#include "listener.h"
 
 FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
@@ -82,6 +84,31 @@ FTP_FUNC_DEFINE(TYPE) {
                 protocol_client_write_response(client, 200, "Type set to L");
                 return 0;
             }
+        }
+    }
+
+    return 1;
+}
+
+FTP_FUNC_DEFINE(PASV) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (!argument) {
+            client->conn_type = PASV;
+            if (!pasv_client_new(&client->pasv_port)) {
+                char *resp = malloc(128);
+                sprintf(resp, "Entering Passive Mode (%d,%d,%d,%d,%d,%d)",
+                        (load_ip_addr >> 24) & 0xff,
+                        (load_ip_addr >> 16) & 0xff,
+                        (load_ip_addr >> 8) & 0xff,
+                        load_ip_addr & 0xff,
+                        client->pasv_port / 256,
+                        client->pasv_port % 256);
+                protocol_client_write_response(client, 227, resp);
+                free(resp);
+            } else {
+                protocol_client_write_response(client, 434, "No available port assigned for this PASV.");
+            }
+            return 0;
         }
     }
 

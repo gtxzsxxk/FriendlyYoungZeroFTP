@@ -23,6 +23,11 @@ enum ftp_data_type {
     BINARY
 };
 
+enum ftp_conn_type {
+    PORT,
+    PASV
+};
+
 struct client_data {
     int sock_fd;
     int nfds;
@@ -41,6 +46,9 @@ struct client_data {
     char cwd[256];
 
     enum ftp_data_type data_type;
+    enum ftp_conn_type conn_type;
+
+    int pasv_port;
 };
 
 #define HANDLE_COMMAND(cmd)     else if (!strcmp(command, #cmd)) { \

@@ -11,6 +11,11 @@
 #include <poll.h>
 #include "logger.h"
 #include "protocol.h"
+#include "pasv_channel.h"
+
+struct sockaddr_in local_addr = {0};
+uint32_t load_ip_addr = 0;
+socklen_t local_len = sizeof(local_addr);
 
 static void set_fd_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -46,6 +51,9 @@ int start_listen(int port) {
     fds[0].fd = server_fd;
     fds[0].events = POLLIN;
 
+    /* 启动被动模式的监听 */
+    pasv_start();
+
     while (1) {
         int poll_cnt = poll(fds, nfds, -1);
         if (poll_cnt == -1) {
@@ -60,6 +68,8 @@ int start_listen(int port) {
                     /* 新的连接 */
                     client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &client_len);
                     if (client_fd >= 0) {
+                        getsockname(client_fd, (struct sockaddr *) &local_addr, &local_len);
+                        load_ip_addr = ntohl(local_addr.sin_addr.s_addr);
                         set_fd_nonblocking(client_fd);
                         /* 加入 poll */
                         fds[nfds].fd = client_fd;
