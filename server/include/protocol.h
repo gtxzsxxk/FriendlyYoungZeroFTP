@@ -24,6 +24,7 @@ enum ftp_data_type {
 };
 
 enum ftp_conn_type {
+    NOT_SPECIFIED,
     PORT,
     PASV
 };

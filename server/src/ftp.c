@@ -96,8 +96,8 @@ FTP_FUNC_DEFINE(TYPE) {
 FTP_FUNC_DEFINE(PASV) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
-            client->conn_type = PASV;
             if (!pasv_client_new(&client->pasv_port)) {
+                client->conn_type = PASV;
                 char *resp = malloc(128);
                 sprintf(resp, "Entering Passive Mode (%d,%d,%d,%d,%d,%d)",
                         (load_ip_addr >> 24) & 0xff,
@@ -109,6 +109,7 @@ FTP_FUNC_DEFINE(PASV) {
                 protocol_client_write_response(client, 227, resp);
                 free(resp);
             } else {
+                client->conn_type = NOT_SPECIFIED;
                 protocol_client_write_response(client, 434, "No available port assigned for this PASV.");
             }
             return 0;
