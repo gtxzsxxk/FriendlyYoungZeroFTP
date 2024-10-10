@@ -50,7 +50,7 @@ struct client_data *protocol_client_init(int fd, int nfds) {
     memset(&clients[index], 0, sizeof(struct client_data));
     clients[index].sock_fd = fd;
     clients[index].nfds = nfds;
-    clients[index].cwd[0] = '/';
+    strcpy(clients[index].cwd, service_root);
 
     protocol_client_write_response(&clients[index], 220, BANNER_STRING);
 
