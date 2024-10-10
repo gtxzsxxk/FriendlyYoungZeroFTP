@@ -11,4 +11,6 @@ add_executable(server src/main.c
         src/logger.c
         include/logger.h
         src/protocol.c
-        include/protocol.h)
+        include/protocol.h
+        src/ftp.c
+        include/ftp.h)

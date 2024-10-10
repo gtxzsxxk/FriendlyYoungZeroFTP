@@ -3,10 +3,12 @@
 //
 
 #include "../include/protocol.h"
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "logger.h"
+#include "ftp.h"
 
 const char *BANNER_STRING = "Welcome to Friendly Young Zero FTP Server!";
 
@@ -70,7 +72,7 @@ struct client_data *protocol_client_by_fd(int fd) {
 
 void protocol_on_recv(int fd) {
     struct client_data *client = protocol_client_by_fd(fd);
-    logger_info("receive data: %s", client->cmd_request);
+    logger_info("receive data: %s\r\n", client->cmd_request);
     char *command;
     command = strtok(client->cmd_request, " ");
     /* 命令全部转换为大写 */
@@ -82,32 +84,19 @@ void protocol_on_recv(int fd) {
         protocol_client_write_response(client, 504, "Unknown instruction");
         return;
     } else if (!strcmp(command, "USER")) {
-        if (client->ftp_state == NEED_USERNAME) {
-            char *argument = strtok(NULL, " ");
-            strcpy(client->username, argument);
-            if (!strtok(NULL, " ")) {
-                client->ftp_state = NEED_PASSWORD;
-                protocol_client_write_response(client, 331, "Password is required");
-                return;
-            }
+        if (!FTP_USER(client, argument)) {
+            return;
         }
-        goto bad;
     } else if (!strcmp(command, "PASS")) {
-        if (client->ftp_state == NEED_PASSWORD) {
-            char *argument = strtok(NULL, " ");
-            strcpy(client->password, argument);
-            if (!strtok(NULL, " ")) {
-                client->ftp_state = LOGGED_IN;
-                protocol_client_write_welcome_message(client, "Welcome to Friendly Young Zero FTP Server!\r\n"
-                                                              "This is the welcome message.\r\n"
-                                                              "Welcome message is this.\r\n");
-                return;
-            }
+        if (!FTP_PASS(client, argument)) {
+            return;
         }
-        goto bad;
+    } else if (!strcmp(command, "PWD")) {
+        if (!FTP_PWD(client, argument)) {
+            return;
+        }
     }
 
-    bad:
     protocol_client_write_response(client, 504, "State machine failed");
 }
 
