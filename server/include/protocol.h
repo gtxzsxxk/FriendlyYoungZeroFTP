@@ -46,4 +46,6 @@ void protocol_on_recv(int fd);
 
 void protocol_client_write_response(struct client_data *client, int code, const char *data);
 
+void protocol_client_write_welcome_message(struct client_data *client, const char *data);
+
 #endif //SERVER_PROTOCOL_H

@@ -26,7 +26,7 @@ static int protocol_client_index_by_fd(int fd) {
     return latest_free;
 }
 
-static void protocol_client_write_welcome_message(struct client_data *client, const char *data) {
+void protocol_client_write_welcome_message(struct client_data *client, const char *data) {
     char *line;
     char *text = malloc(512);
     strcpy(text, data);
