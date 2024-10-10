@@ -35,6 +35,7 @@ static void protocol_client_write_welcome_message(struct client_data *client, co
         sprintf(client->cmd_send + start, "230-%s\r\n", line);
         start = strlen(client->cmd_send);
     }
+    sprintf(client->cmd_send + start, "230 %s\r\n", "Guest login ok, access restrictions apply.");
     client->net_state = NEED_SEND;
     free(text);
 }
