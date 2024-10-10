@@ -5,7 +5,7 @@
 #ifndef SERVER_PROTOCOL_H
 #define SERVER_PROTOCOL_H
 
-#define MAX_CLIENTS 100
+#define MAX_CLIENTS 20
 
 enum net_state_machine {
     IDLE,
