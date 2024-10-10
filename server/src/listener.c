@@ -90,7 +90,8 @@ int start_listen(int port) {
                         }
                         if (find_crlf) {
                             memcpy(client->cmd_request, client->cmd_request_buffer, crlf + 1);
-                            client->cmd_request[crlf + 1] = '\0';
+                            /* 直接去掉接收到的命令里的\r\n */
+                            client->cmd_request[crlf - 1] = '\0';
                             memcpy(client->cmd_request_buffer, client->cmd_request_buffer + crlf + 1,
                                    client->recv_ptr - crlf - 1);
                             client->recv_ptr -= crlf + 1;
