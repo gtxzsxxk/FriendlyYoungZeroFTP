@@ -181,17 +181,25 @@ FTP_FUNC_DEFINE(LIST) {
                 if (!fp) {
                     protocol_client_write_response(client, 451, "Failed to call ls -l.");
                 } else {
-                    char *buffer = malloc(8192);
-                    char *formatted = malloc(8192);
+                    const size_t init_len = 8192;
+                    size_t buf_len = init_len;
+                    char *buffer = malloc(init_len);
+                    char *formatted = malloc(init_len);
                     size_t len = 0;
-                    memset(buffer, 0, 8192);
-                    memset(formatted, 0, 8192);
-                    while (fgets(buffer + len, 8192 - len, fp) != NULL) {
+                    memset(buffer, 0, init_len);
+                    memset(formatted, 0, init_len);
+                    while (fgets(buffer + len, buf_len - 10, fp) != NULL) {
                         len = strlen(buffer);
-                        if (len >= 8192) {
-                            protocol_client_write_response(client, 452, "Buffer overflow.");
+                        if (len >= buf_len - 1024) {
+                            buf_len *= 2;
+                            char *new_buffer = malloc(buf_len);
+                            char *new_fmt = malloc(buf_len);
+
+                            strcpy(new_buffer, buffer);
                             free(buffer);
-                            return 0;
+                            free(formatted);
+                            buffer = new_buffer;
+                            formatted = new_fmt;
                         }
                     }
                     pclose(fp);
