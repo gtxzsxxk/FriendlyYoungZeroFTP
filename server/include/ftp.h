@@ -15,7 +15,7 @@ FTP_FUNC_DEFINE(PASS);
 
 FTP_FUNC_DEFINE(PWD);
 
-int FTP_TYPE(struct client_data *client, char *argument);
+FTP_FUNC_DEFINE(CWD);
 
 FTP_FUNC_DEFINE(TYPE);
 

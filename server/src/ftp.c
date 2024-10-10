@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "filesystem.h"
 
 FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
@@ -48,7 +49,23 @@ FTP_FUNC_DEFINE(PWD) {
     return 1;
 }
 
-int FTP_TYPE(struct client_data *client, char *argument) {
+FTP_FUNC_DEFINE(CWD) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            const char *fullpath = fs_path_join(service_root, argument);
+            if (fs_directory_exists(fullpath)) {
+                strcpy(client->cwd, argument);
+                protocol_client_write_response(client, 250, "Okay.");
+            } else {
+                protocol_client_write_response(client, 550, "No such file or directory.");
+            }
+            free((void *) fullpath);
+            return 0;
+        }
+    }
+    return 1;
+}
+
 FTP_FUNC_DEFINE(TYPE) {
     if (client->ftp_state == LOGGED_IN) {
         if (argument) {

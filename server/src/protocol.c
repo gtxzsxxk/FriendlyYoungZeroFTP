@@ -97,6 +97,10 @@ void protocol_on_recv(int fd) {
         if (!FTP_PWD(client, argument)) {
             return;
         }
+    } else if (!strcmp(command, "CWD")) {
+        if (!FTP_CWD(client, argument)) {
+            return;
+        }
     } else if (!strcmp(command, "TYPE")) {
         if (!FTP_TYPE(client, argument)) {
             return;
