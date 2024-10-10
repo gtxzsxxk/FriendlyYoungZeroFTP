@@ -73,6 +73,11 @@ void protocol_on_recv(int fd) {
     logger_info("receive data: %s", client->cmd_request);
     char *command;
     command = strtok(client->cmd_request, " ");
+    /* 命令全部转换为大写 */
+    for (int i = 0; i < strlen(command); i++) {
+        command[i] = toupper(command[i]);
+    }
+    char *argument = strtok(NULL, " ");
     if (!strcmp(command, "AUTH")) {
         protocol_client_write_response(client, 504, "Unknown instruction");
         return;
