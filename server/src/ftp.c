@@ -117,3 +117,63 @@ FTP_FUNC_DEFINE(PASV) {
 
     return 1;
 }
+
+FTP_FUNC_DEFINE(LIST) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (!argument) {
+            if (client->conn_type == NOT_SPECIFIED) {
+                protocol_client_write_response(client, 550, "Specify the PORT/PASV mode.");
+            } else if (client->conn_type == PASV) {
+                if (!fs_directory_allows(service_root, client->cwd)) {
+                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                    return 0;
+                }
+                char shell[384];
+                memset(shell, 0, 256);
+                sprintf(shell, "ls -l %s", client->cwd);
+                FILE *fp = popen(shell, "r");
+                if (!fp) {
+                    protocol_client_write_response(client, 451, "Failed to call ls -l.");
+                } else {
+                    char *buffer = malloc(8192);
+                    char *formatted = malloc(8192);
+                    size_t len = 0;
+                    memset(buffer, 0, 8192);
+                    memset(formatted, 0, 8192);
+                    while (fgets(buffer + len, 8192 - len, fp) != NULL) {
+                        len = strlen(buffer);
+                        if (len >= 8192) {
+                            protocol_client_write_response(client, 452, "Buffer overflow.");
+                            free(buffer);
+                            return 0;
+                        }
+                    }
+                    pclose(fp);
+                    char *line;
+                    size_t fmt_len = 0;
+                    for (line = strtok(buffer, "\r\n"); line; line = strtok(NULL, "\r\n")) {
+                        char tmp = line[5];
+                        line[5] = 0;
+                        if (!strcmp(line, "total")) {
+                            line[5] = tmp;
+                            continue;
+                        }
+                        line[5] = tmp;
+                        strcpy(formatted + fmt_len, line);
+                        fmt_len = strlen(formatted);
+                        formatted[fmt_len] = '\r';
+                        formatted[fmt_len + 1] = '\n';
+                        fmt_len += 2;
+                    }
+                    free(buffer);
+                    /* buffer 由 pasv 进行释放 */
+                    pasv_send_data(client->pasv_port, formatted, fmt_len);
+                    protocol_client_write_response(client, 226, "Directory send OK.");
+                }
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}

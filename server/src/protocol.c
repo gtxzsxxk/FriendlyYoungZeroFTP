@@ -92,6 +92,7 @@ void protocol_on_recv(int fd) {
     HANDLE_COMMAND(CWD)
     HANDLE_COMMAND(TYPE)
     HANDLE_COMMAND(PASV)
+    HANDLE_COMMAND(LIST)
 
     protocol_client_write_response(client, 504, "State machine failed");
 }
