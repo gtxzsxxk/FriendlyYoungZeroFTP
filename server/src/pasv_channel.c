@@ -15,7 +15,7 @@
 #include <time.h>
 #include <semaphore.h>
 #include "logger.h"
-#include "protocol.h"
+#include "listener.h"
 
 struct pasv_client_data {
     int port;
@@ -27,6 +27,8 @@ struct pasv_client_data {
     size_t send_len;
     pthread_mutex_t lock;
     char recv_buffer[1024];
+    char send_buffer[1024];
+    struct client_data *ctrl_client;
 
     enum net_state_machine state_machine;
 };
@@ -35,7 +37,7 @@ struct pasv_client_data pasv_clients[MAX_CLIENTS];
 static struct pollfd fds[MAX_CLIENTS];
 static int nfds = 0;
 
-int pipe_fd[2];
+int ctrl_send_data_pipe_fd[2];
 
 static pthread_t pasv_thread_ptr;
 
@@ -94,7 +96,9 @@ int pasv_client_new(int *port) {
     return -1;
 }
 
-int pasv_send_data(int port, const char *data, size_t len) {
+int pasv_send_data(int port, const char *data, size_t len,
+                   struct client_data *ctrl_client,
+                   const char *end_msg) {
     struct pasv_client_data *client = NULL;
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (pasv_clients[i].port == port) {
@@ -110,7 +114,13 @@ int pasv_send_data(int port, const char *data, size_t len) {
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
-    write(pipe_fd[1], &client, sizeof(&client));
+    if (ctrl_client) {
+        strcpy(client->send_buffer, end_msg);
+        client->ctrl_client = ctrl_client;
+    } else {
+        client->ctrl_client = NULL;
+    }
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     pthread_mutex_unlock(&client->lock);
     return 0;
 }
@@ -145,15 +155,15 @@ static void *pasv_thread(void *args) {
         pthread_mutex_init(&(pasv_clients[i].lock), NULL);
     }
 
-    if (pipe(pipe_fd) == -1) {
+    if (pipe(ctrl_send_data_pipe_fd) == -1) {
         logger_err("pasv pipe failed");
         return NULL;
     }
 
-    set_fd_nonblocking(pipe_fd[0]);
-    set_fd_nonblocking(pipe_fd[1]);
+    set_fd_nonblocking(ctrl_send_data_pipe_fd[0]);
+    set_fd_nonblocking(ctrl_send_data_pipe_fd[1]);
 
-    fds[nfds].fd = pipe_fd[0];
+    fds[nfds].fd = ctrl_send_data_pipe_fd[0];
     fds[nfds].events = POLLIN;
     nfds++;
 
@@ -167,9 +177,9 @@ static void *pasv_thread(void *args) {
         for (int i = 0; i < nfds; i++) {
             client = NULL;
             if (fds[i].revents & POLLIN) {
-                if (fds[i].fd == pipe_fd[0]) {
+                if (fds[i].fd == ctrl_send_data_pipe_fd[0]) {
                     /* 需要传输数据 */
-                    read(pipe_fd[0], &client, sizeof(&client));
+                    read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
                     if (client->pasv_client_fd) {
                         fds[client->pasv_client_fd].events |= POLLOUT;
                     }
@@ -238,6 +248,13 @@ static void *pasv_thread(void *args) {
                     client->data_to_send = NULL;
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
+                    }
+                    /* Callback */
+                    if (client->ctrl_client) {
+                        pthread_mutex_lock(&client->ctrl_client->net_lock);
+                        strcpy(client->ctrl_client->cmd_send, client->send_buffer);
+                        client->ctrl_client->net_state = NEED_SEND;
+                        write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
                     }
                     /* 恢复 POLLIN */
                     fds[i].events = POLLIN;

@@ -222,8 +222,10 @@ FTP_FUNC_DEFINE(LIST) {
                     }
                     free(buffer);
                     /* buffer 由 pasv 进行释放 */
-                    pasv_send_data(client->pasv_port, formatted, fmt_len);
-                    protocol_client_write_response(client, 226, "Directory send OK.");
+                    protocol_client_resp_by_state_machine(client, 150, "Here comes the directory listing.");
+                    char tmp[64];
+                    sprintf(tmp, "%d %s\r\n", 226, "Directory send OK.");
+                    pasv_send_data(client->pasv_port, formatted, fmt_len, client, tmp);
                 }
             }
             return 0;
