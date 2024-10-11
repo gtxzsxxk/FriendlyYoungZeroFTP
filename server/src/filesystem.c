@@ -4,8 +4,8 @@
 
 #include "filesystem.h"
 #include <sys/stat.h>
-#include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int fs_directory_exists(const char *path) {
     struct stat info;
@@ -103,4 +103,27 @@ const char *fs_path_erase(const char *root, const char *path, char **free_handle
 
     *free_handle = tmp_path;
     return tmp_path + len2;
+}
+
+int fs_file_exists(const char *filename) {
+    return access(filename, F_OK) == 0;
+}
+
+const char *fs_get_filename(const char *path) {
+    const char *last_slash = strrchr(path, '/');
+    if (last_slash) {
+        return last_slash + 1;
+    } else {
+        return path;
+    }
+}
+
+size_t fs_get_file_size(const char *path) {
+    struct stat st;
+
+    if (stat(path, &st) == 0) {
+        return st.st_size;
+    } else {
+        return -1;
+    }
 }
