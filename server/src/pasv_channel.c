@@ -18,6 +18,7 @@
 #endif
 
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -270,6 +271,13 @@ static void *pasv_thread(void *args) {
                             return NULL;
                         }
                         set_fd_nonblocking(client->pasv_client_fd);
+                        int flag = 1;
+                        if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag)) == -1) {
+                            logger_err("Failed to set up TCP_NODELAY connection");
+                            close_connection(client);
+                            i = -1;
+                            continue;
+                        }
                         struct pollfd fd = {
                                 .fd = client->pasv_client_fd,
                                 .events = POLLIN,
