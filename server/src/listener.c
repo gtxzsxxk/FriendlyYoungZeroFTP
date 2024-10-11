@@ -1,6 +1,7 @@
 #include "listener.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -111,6 +112,11 @@ int start_listen(int port) {
                         getsockname(client_fd, (struct sockaddr *) &local_addr, &local_len);
                         load_ip_addr = ntohl(local_addr.sin_addr.s_addr);
                         set_fd_nonblocking(client_fd);
+                        int flag = 1;
+                        if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(flag)) == -1) {
+                            logger_err("Failed to set up TCP_NODELAY control");
+                            continue;
+                        }
                         /* 加入 poll */
                         struct pollfd fd = {
                                 .fd = client_fd,
