@@ -24,6 +24,7 @@ struct pasv_client_data {
     int client_nfds;
     const char *data_to_send;
     char file_to_send[256];
+    int file_fd;
     off_t send_offset;
     size_t send_len;
     pthread_mutex_t lock;
@@ -145,6 +146,7 @@ int pasv_sendfile(int port, const char *path,
     client->send_offset = 0;
     client->data_to_send = NULL;
     strcpy(client->file_to_send, path);
+    client->file_fd = 0;
     client->send_len = fs_get_file_size(path);
     client->state_machine = NEED_SEND;
     if (ctrl_client) {
@@ -283,9 +285,11 @@ static void *pasv_thread(void *args) {
                                     client->send_len - client->send_offset, 0);
                         client->send_offset += sent;
                     } else {
-                        int file_fd = open(client->file_to_send, O_RDONLY);
+                        if(!client->file_fd) {
+                            client->file_fd = open(client->file_to_send, O_RDONLY);
+                        }
                         sent = sendfile(fds[i].fd,
-                                        file_fd,
+                                        client->file_fd,
                                         &client->send_offset,
                                         client->send_len - client->send_offset);
                     }
