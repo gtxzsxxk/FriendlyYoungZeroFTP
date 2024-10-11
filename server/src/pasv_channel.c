@@ -229,8 +229,6 @@ static void *pasv_thread(void *args) {
                     }
                 }
                 if (!client) {
-                    /* TODO: 关闭连接，释放资源 */
-                    logger_err("Cannot find the pasv client with fd %d", fds[i].fd);
                     continue;
                 }
                 pthread_mutex_lock(&client->lock);
