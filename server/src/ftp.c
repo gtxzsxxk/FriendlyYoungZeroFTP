@@ -326,3 +326,42 @@ FTP_FUNC_DEFINE(RMD) {
     }
     return 1;
 }
+
+FTP_FUNC_DEFINE(RETR) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (client->conn_type == NOT_SPECIFIED) {
+            protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
+        } else if (client->conn_type == PASV) {
+            if (argument) {
+                const char *fullpath = NULL;
+                if (argument[0] == '/') {
+                    fullpath = fs_path_join(service_root, argument);
+                } else {
+                    fullpath = fs_path_join(client->cwd, argument);
+                }
+                if (fs_directory_allows(service_root, fullpath)) {
+                    if (fs_file_exists(fullpath)) {
+                        const char *ascii = "ASCII";
+                        const char *binary = "BINARY";
+                        char *resp = malloc(512);
+                        sprintf(resp, "Opening %s mode data connection for %s (%zu bytes).",
+                                client->data_type == BINARY ? binary : ascii,
+                                fs_get_filename(fullpath),
+                                fs_get_file_size(fullpath));
+                        protocol_client_resp_by_state_machine(client, 150, resp);
+                        sprintf(resp, "%d %s\r\n", 226, "Transfer complete.");
+                        pasv_sendfile(client->pasv_port, fullpath, client, resp);
+                        free(resp);
+                    } else {
+                        protocol_client_resp_by_state_machine(client, 550, "No such file or directory.");
+                    }
+                } else {
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
+                }
+                free((void *) fullpath);
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
