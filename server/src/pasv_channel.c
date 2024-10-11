@@ -243,27 +243,42 @@ static void *pasv_thread(void *args) {
                 }
                 pthread_mutex_lock(&client->lock);
                 if (client->state_machine == NEED_SEND) {
-                    ssize_t sent = send(fds[i].fd, client->data_to_send, client->send_len, 0);
-                    free((void *) client->data_to_send);
-                    client->data_to_send = NULL;
+                    ssize_t sent;
+                    if (client->data_to_send) {
+                        sent = send(fds[i].fd,
+                                    client->data_to_send + client->send_offset,
+                                    client->send_len - client->send_offset, 0);
+                        client->send_offset += sent;
+                    } else {
+                        int file_fd = open(client->file_to_send, O_RDONLY);
+                        sent = sendfile(fds[i].fd,
+                                        file_fd,
+                                        &client->send_offset,
+                                        client->send_len - client->send_offset);
+                    }
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
                     }
-                    /* Callback */
-                    if (client->ctrl_client) {
-                        pthread_mutex_lock(&client->ctrl_client->net_lock);
-                        strcpy(client->ctrl_client->cmd_send, client->send_buffer);
-                        client->ctrl_client->net_state = NEED_SEND;
-                        write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
+                    if (client->send_offset == client->send_len) {
+                        if (client->data_to_send) {
+                            free((void *) client->data_to_send);
+                            client->data_to_send = NULL;
+                        }
+                        /* Callback */
+                        if (client->ctrl_client) {
+                            pthread_mutex_lock(&client->ctrl_client->net_lock);
+                            strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
+                            client->ctrl_client->net_state = NEED_SEND;
+                            write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
+                        }
+                        /* 传输结束后，关闭连接 */
+                        close_connection(client);
+                    } else {
+                        fds[i].events = POLLOUT;
                     }
-                    /* 恢复 POLLIN */
-                    fds[i].events = POLLIN;
-                    client->state_machine = IDLE;
                 } else {
                     logger_err("The pasv client with fd %d should not send by get POLLOUT", fds[i].fd);
                 }
-                /* 传输结束后，关闭连接 */
-                close_connection(client);
                 pthread_mutex_unlock(&client->lock);
             }
         }
