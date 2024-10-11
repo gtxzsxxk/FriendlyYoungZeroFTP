@@ -48,7 +48,6 @@ void protocol_client_write_welcome_message(struct client_data *client, const cha
 struct client_data *protocol_client_init(int fd, int nfds) {
     /* 分配一个新的 client_data */
     int index = protocol_client_index_by_fd(fd);
-    memset(&clients[index], 0, sizeof(struct client_data));
     clients[index].sock_fd = fd;
     clients[index].nfds = nfds;
     pthread_mutex_init(&clients[index].net_lock, NULL);
@@ -61,8 +60,8 @@ struct client_data *protocol_client_init(int fd, int nfds) {
 
 void protocol_client_free(int fd) {
     int index = protocol_client_index_by_fd(fd);
-    clients[index].sock_fd = 0;
     pthread_mutex_destroy(&clients[index].net_lock);
+    memset(&clients[index], 0, sizeof(struct client_data));
 }
 
 struct client_data *protocol_client_by_fd(int fd) {
