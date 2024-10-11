@@ -1,13 +1,10 @@
 #include "listener.h"
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <ctype.h>
 #include <string.h>
-#include <stdio.h>
 #include <poll.h>
 #include "logger.h"
 #include "protocol.h"
@@ -19,17 +16,45 @@ socklen_t local_len = sizeof(local_addr);
 
 int pasv_send_ctrl_pipe_fd[2];
 
+static struct pollfd fds[MAX_CLIENTS];
+static int nfds = 0;
+
 static void set_fd_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+static int push_new_fd(struct pollfd fd) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (!fds[i].fd) {
+            fds[i] = fd;
+            nfds++;
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void close_fd_connection(int index) {
+    close(fds[index].fd);
+    fds[index].fd = 0;
+    fds[index].events = 0;
+    fds[index].revents = 0;
+    nfds--;
+}
+
+static void close_client_connection(struct client_data *client) {
+    logger_info("client disconnected %s:%d",
+                inet_ntoa(client->addr.sin_addr),
+                ntohs(client->addr.sin_port));
+    close_fd_connection(client->nfds);
+    protocol_client_free(client->sock_fd);
 }
 
 int start_listen(int port) {
     int server_fd, client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
-    struct pollfd fds[MAX_CLIENTS];
-    int nfds = 0;
     struct client_data *client;
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -87,9 +112,16 @@ int start_listen(int port) {
                         load_ip_addr = ntohl(local_addr.sin_addr.s_addr);
                         set_fd_nonblocking(client_fd);
                         /* 加入 poll */
-                        fds[nfds].fd = client_fd;
-                        fds[nfds].events = POLLIN;
-                        client = protocol_client_init(client_fd, nfds++);
+                        struct pollfd fd = {
+                                .fd = client_fd,
+                                .events = POLLIN,
+                        };
+                        if (nfds == MAX_CLIENTS) {
+                            logger_err("Clients number exceeded!");
+                            close(client_fd);
+                            continue;
+                        }
+                        client = protocol_client_init(client_fd, push_new_fd(fd));
                         client->addr = client_addr;
                         logger_info("new client connected %s:%d", inet_ntoa(client_addr.sin_addr),
                                     ntohs(client_addr.sin_port));
@@ -103,8 +135,8 @@ int start_listen(int port) {
                     /* 处理 client 传输过来的命令 */
                     client = protocol_client_by_fd(fds[i].fd);
                     if (!client) {
-                        /* TODO: 关闭连接，释放资源 */
-                        logger_err("Cannot find the client with fd %d", fds[i].fd);
+                        close_fd_connection(i);
+                        i = -1;
                         continue;
                     }
                     int rev_cnt = recv(fds[client->nfds].fd, client->cmd_request_buffer + client->recv_ptr, 512, 0);
@@ -128,13 +160,10 @@ int start_listen(int port) {
                             client->recv_ptr -= crlf + 1;
                             protocol_on_recv(client->sock_fd);
                         }
-                    } else if (!rev_cnt) {
-                        /* close connection */
-                        logger_info("client disconnected %s:%d", inet_ntoa(client_addr.sin_addr),
-                                    ntohs(client_addr.sin_port));
-                        protocol_client_free(fds[client->nfds].fd);
-                        close(fds[client->nfds].fd);
-                        nfds--;
+                    } else {
+                        close_client_connection(client);
+                        i = -1;
+                        continue;
                     }
                 }
 
@@ -147,8 +176,10 @@ int start_listen(int port) {
                 /* 发送数据包 */
                 client = protocol_client_by_fd(fds[i].fd);
                 if (!client) {
-                    /* TODO: 关闭连接，释放资源 */
-                    logger_err("Cannot find the client with fd %d", fds[i].fd);
+                    if (i > 1) {
+                        close_fd_connection(i);
+                        i = -1;
+                    }
                     continue;
                 }
                 char *msg = client->cmd_send;
@@ -162,6 +193,12 @@ int start_listen(int port) {
                 fds[i].events = POLLIN;
 
                 client->net_state = IDLE;
+            } else if (fds[i].revents & POLLNVAL) {
+                if (i > 1) {
+                    close_fd_connection(i);
+                    i = -1;
+                    continue;
+                }
             }
         }
     }
