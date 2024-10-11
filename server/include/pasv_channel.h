@@ -18,6 +18,10 @@ int pasv_send_data(int port, const char *data, size_t len,
                    struct client_data *ctrl_client,
                    const char *end_msg);
 
+int pasv_sendfile(int port, const char *path,
+                  struct client_data *ctrl_client,
+                  const char *end_msg);
+
 void pasv_start(void);
 
 #endif //SERVER_PASV_CHANNEL_H

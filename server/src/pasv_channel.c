@@ -4,18 +4,17 @@
 
 #include "pasv_channel.h"
 #include <sys/socket.h>
+#include <sys/sendfile.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <poll.h>
 #include <time.h>
-#include <semaphore.h>
 #include "logger.h"
 #include "listener.h"
+#include "filesystem.h"
 
 struct pasv_client_data {
     int port;
@@ -24,10 +23,12 @@ struct pasv_client_data {
     int server_nfds;
     int client_nfds;
     const char *data_to_send;
+    char file_to_send[256];
+    off_t send_offset;
     size_t send_len;
     pthread_mutex_t lock;
     char recv_buffer[1024];
-    char send_buffer[1024];
+    char ctrl_send_buffer[512];
     struct client_data *ctrl_client;
 
     enum net_state_machine state_machine;
@@ -111,11 +112,43 @@ int pasv_send_data(int port, const char *data, size_t len,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
+    client->send_offset = 0;
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
     if (ctrl_client) {
-        strcpy(client->send_buffer, end_msg);
+        strcpy(client->ctrl_send_buffer, end_msg);
+        client->ctrl_client = ctrl_client;
+    } else {
+        client->ctrl_client = NULL;
+    }
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    pthread_mutex_unlock(&client->lock);
+    return 0;
+}
+
+int pasv_sendfile(int port, const char *path,
+                  struct client_data *ctrl_client,
+                  const char *end_msg) {
+    struct pasv_client_data *client = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (pasv_clients[i].port == port) {
+            client = &pasv_clients[i];
+            break;
+        }
+    }
+    if (!client) {
+        logger_err("No such a client with port %d", port);
+        return -1;
+    }
+    pthread_mutex_lock(&client->lock);
+    client->send_offset = 0;
+    client->data_to_send = NULL;
+    strcpy(client->file_to_send, path);
+    client->send_len = fs_get_file_size(path);
+    client->state_machine = NEED_SEND;
+    if (ctrl_client) {
+        strcpy(client->ctrl_send_buffer, end_msg);
         client->ctrl_client = ctrl_client;
     } else {
         client->ctrl_client = NULL;
@@ -148,7 +181,7 @@ static void close_connection(struct pasv_client_data *client) {
 
 static void *pasv_thread(void *args) {
     struct pasv_client_data *client;
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
