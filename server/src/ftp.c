@@ -333,6 +333,17 @@ FTP_FUNC_DEFINE(RETR) {
             protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
         } else if (client->conn_type == PASV) {
             if (argument) {
+                /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
+                 * 参数应该从full_instruction中获取
+                 */
+                char tmp = client->full_instruction[5];
+                client->full_instruction[5] = 0;
+                if ((strcmp(client->full_instruction, "RETR ") != 0) &&
+                    (strcmp(client->full_instruction, "retr ") != 0)) {
+                    return 1;
+                }
+                client->full_instruction[5] = tmp;
+                argument = &client->full_instruction[5];
                 const char *fullpath = NULL;
                 if (argument[0] == '/') {
                     fullpath = fs_path_join(service_root, argument);

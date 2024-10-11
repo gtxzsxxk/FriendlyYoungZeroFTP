@@ -42,6 +42,7 @@ struct client_data {
     int recv_ptr;
     char cmd_request_buffer[512];
     char cmd_request[512];
+    char full_instruction[512];
     char cmd_send[512];
     pthread_mutex_t net_lock;
 

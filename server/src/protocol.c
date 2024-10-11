@@ -78,6 +78,7 @@ struct client_data *protocol_client_by_fd(int fd) {
 void protocol_on_recv(int fd) {
     struct client_data *client = protocol_client_by_fd(fd);
     logger_info("receive data: %s\r\n", client->cmd_request);
+    strcpy(client->full_instruction, client->cmd_request);
     char *command;
     command = strtok(client->cmd_request, " ");
     /* 命令全部转换为大写 */
