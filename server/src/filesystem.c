@@ -60,7 +60,7 @@ const char *fs_path_join(const char *path1, const char *path2) {
 
 const char *fs_path_backward(const char *path) {
     size_t len = strlen(path);
-    char *backward = malloc(len);
+    char *backward = malloc(len + 10);
     strcpy(backward, path);
     if (len == 1) {
         return backward;
@@ -69,7 +69,7 @@ const char *fs_path_backward(const char *path) {
         backward[len - 1] = 0;
         len--;
     }
-    for (size_t i = len - 1; i >= 0; i--) {
+    for (ssize_t i = len - 1; i >= 0; i--) {
         if (backward[i] == '/' && i > 0) {
             backward[i] = 0;
             break;
