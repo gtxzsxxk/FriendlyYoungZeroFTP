@@ -118,9 +118,13 @@ int pasv_send_data(int port, const char *data, size_t len) {
 static void close_connection(struct pasv_client_data *client) {
     close(client->pasv_server_fd);
     close(client->pasv_client_fd);
+    fds[client->client_nfds].fd = 0;
+    fds[client->client_nfds].events = 0;
     for (int k = client->client_nfds + 1; k < nfds; k++) {
         fds[k - 1] = fds[k];
     }
+    fds[client->server_nfds].fd = 0;
+    fds[client->server_nfds].events = 0;
     for (int k = client->server_nfds + 1; k < nfds; k++) {
         fds[k - 1] = fds[k];
     }
