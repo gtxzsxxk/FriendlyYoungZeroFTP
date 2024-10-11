@@ -153,6 +153,7 @@ int start_listen(int port) {
                 char *msg = client->cmd_send;
                 size_t len = strlen(msg);
                 ssize_t sent = send(fds[i].fd, msg, len, 0);
+                pthread_mutex_unlock(&client->net_lock);
                 if (sent < 0) {
                     logger_err("Cannot send data to the client with fd %d", fds[i].fd);
                 }

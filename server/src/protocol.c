@@ -35,6 +35,7 @@ void protocol_client_write_welcome_message(struct client_data *client, const cha
     char *text = malloc(512);
     strcpy(text, data);
     int start = 0;
+    pthread_mutex_lock(&client->net_lock);
     for (line = strtok(text, "\r\n"); line; line = strtok(NULL, "\r\n")) {
         sprintf(client->cmd_send + start, "230-%s\r\n", line);
         start = strlen(client->cmd_send);
@@ -50,6 +51,7 @@ struct client_data *protocol_client_init(int fd, int nfds) {
     memset(&clients[index], 0, sizeof(struct client_data));
     clients[index].sock_fd = fd;
     clients[index].nfds = nfds;
+    pthread_mutex_init(&clients[index].net_lock, NULL);
     strcpy(clients[index].cwd, service_root);
 
     protocol_client_write_response(&clients[index], 220, BANNER_STRING);
@@ -60,6 +62,7 @@ struct client_data *protocol_client_init(int fd, int nfds) {
 void protocol_client_free(int fd) {
     int index = protocol_client_index_by_fd(fd);
     clients[index].sock_fd = 0;
+    pthread_mutex_destroy(&clients[index].net_lock);
 }
 
 struct client_data *protocol_client_by_fd(int fd) {
@@ -100,7 +103,8 @@ void protocol_on_recv(int fd) {
     protocol_client_write_response(client, 504, "State machine failed");
 }
 
-void protocol_client_write_response(struct client_data *client, int code, const char *data) {
+void protocol_client_resp_by_state_machine(struct client_data *client, int code, const char *data) {
+    pthread_mutex_lock(&client->net_lock);
     client->net_state = NEED_SEND;
     sprintf(client->cmd_send, "%d %s\r\n", code, data);
 }

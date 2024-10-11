@@ -5,6 +5,9 @@
 #ifndef SERVER_PROTOCOL_H
 #define SERVER_PROTOCOL_H
 
+#include <unistd.h>
+#include <pthread.h>
+
 #define MAX_CLIENTS 20
 
 enum net_state_machine {
@@ -40,6 +43,7 @@ struct client_data {
     char cmd_request_buffer[512];
     char cmd_request[512];
     char cmd_send[512];
+    pthread_mutex_t net_lock;
 
     char username[20];
     char password[64];
