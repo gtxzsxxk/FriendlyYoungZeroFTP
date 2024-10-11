@@ -12,7 +12,9 @@
 #include <sys/uio.h>
 
 #else
+
 #include <sys/sendfile.h>
+
 #endif
 
 #include <netinet/in.h>
@@ -58,6 +60,17 @@ static void set_fd_nonblocking(int fd) {
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+static int push_new_fd(struct pollfd fd) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (!fds[i].fd) {
+            fds[i] = fd;
+            nfds++;
+            return i;
+        }
+    }
+    return -1;
+}
+
 int pasv_client_new(int *port) {
     int sockfd;
     struct sockaddr_in serv_addr;
@@ -95,9 +108,15 @@ int pasv_client_new(int *port) {
             client->pasv_server_fd = sockfd;
             client->data_to_send = NULL;
             client->send_len = 0;
-            fds[nfds].fd = client->pasv_server_fd;
-            fds[nfds].events = POLLIN;
-            client->server_nfds = nfds++;
+            struct pollfd fd = {
+                    .fd = client->pasv_server_fd,
+                    .events = POLLIN,
+            };
+            if (nfds == MAX_CLIENTS - 1) {
+                logger_err("Client numbers for pasv exceeded!");
+                return 1;
+            }
+            client->server_nfds = push_new_fd(fd);
             return 0;
         } else {
             close(sockfd);
@@ -175,14 +194,8 @@ static void close_connection(struct pasv_client_data *client) {
     close(client->pasv_client_fd);
     fds[client->client_nfds].fd = 0;
     fds[client->client_nfds].events = 0;
-    for (int k = client->client_nfds + 1; k < nfds; k++) {
-        fds[k - 1] = fds[k];
-    }
     fds[client->server_nfds].fd = 0;
     fds[client->server_nfds].events = 0;
-    for (int k = client->server_nfds + 1; k < nfds; k++) {
-        fds[k - 1] = fds[k];
-    }
     nfds -= 2;
     if (client->data_to_send) {
         free((void *) client->data_to_send);
@@ -257,9 +270,11 @@ static void *pasv_thread(void *args) {
                             return NULL;
                         }
                         set_fd_nonblocking(client->pasv_client_fd);
-                        fds[nfds].fd = client->pasv_client_fd;
-                        fds[nfds].events = POLLIN;
-                        client->client_nfds = nfds++;
+                        struct pollfd fd = {
+                                .fd = client->pasv_client_fd,
+                                .events = POLLIN,
+                        };
+                        client->client_nfds = push_new_fd(fd);
 
                         if (client->state_machine == NEED_SEND) {
                             fds[client->client_nfds].events |= POLLOUT;
