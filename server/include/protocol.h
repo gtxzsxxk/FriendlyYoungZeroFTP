@@ -7,6 +7,7 @@
 
 #include <unistd.h>
 #include <pthread.h>
+#include <netinet/in.h>
 
 #define MAX_CLIENTS 20
 
@@ -34,6 +35,8 @@ enum ftp_conn_type {
 
 struct client_data {
     int sock_fd;
+    struct sockaddr_in addr;
+
     int nfds;
     enum net_state_machine net_state;
     enum ftp_state_machine ftp_state;

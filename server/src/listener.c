@@ -90,6 +90,7 @@ int start_listen(int port) {
                         fds[nfds].fd = client_fd;
                         fds[nfds].events = POLLIN;
                         client = protocol_client_init(client_fd, nfds++);
+                        client->addr = client_addr;
                         logger_info("new client connected %s:%d", inet_ntoa(client_addr.sin_addr),
                                     ntohs(client_addr.sin_port));
                     }
