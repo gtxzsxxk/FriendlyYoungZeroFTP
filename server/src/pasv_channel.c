@@ -50,7 +50,7 @@ struct pasv_client_data {
 
 struct pasv_client_data pasv_clients[MAX_CLIENTS];
 static struct pollfd fds[MAX_CLIENTS];
-static int nfds = 0;
+static int fd_most_tail = 0;
 
 int ctrl_send_data_pipe_fd[2];
 
@@ -63,9 +63,11 @@ static void set_fd_nonblocking(int fd) {
 
 static int push_new_fd(struct pollfd fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (!fds[i].fd) {
+        if (fds[i].fd == -1) {
             fds[i] = fd;
-            nfds++;
+            if (i >= fd_most_tail) {
+                fd_most_tail++;
+            }
             return i;
         }
     }
@@ -113,11 +115,11 @@ int pasv_client_new(int *port) {
                     .fd = client->pasv_server_fd,
                     .events = POLLIN,
             };
-            if (nfds == MAX_CLIENTS - 1) {
+            client->server_nfds = push_new_fd(fd);
+            if (client->server_nfds == -1) {
                 logger_err("Client numbers for pasv exceeded!");
                 return 1;
             }
-            client->server_nfds = push_new_fd(fd);
             return 0;
         } else {
             close(sockfd);
@@ -193,11 +195,10 @@ int pasv_sendfile(int port, const char *path,
 static void close_connection(struct pasv_client_data *client) {
     close(client->pasv_server_fd);
     close(client->pasv_client_fd);
-    fds[client->client_nfds].fd = 0;
+    fds[client->client_nfds].fd = -1;
     fds[client->client_nfds].events = 0;
-    fds[client->server_nfds].fd = 0;
+    fds[client->server_nfds].fd = -1;
     fds[client->server_nfds].events = 0;
-    nfds -= 2;
     if (client->data_to_send) {
         free((void *) client->data_to_send);
     }
@@ -211,6 +212,7 @@ static void *pasv_thread(void *args) {
     socklen_t client_len = sizeof(client_addr);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
+        fds[i].fd = -1;
         pthread_mutex_init(&(pasv_clients[i].lock), NULL);
     }
 
@@ -222,18 +224,21 @@ static void *pasv_thread(void *args) {
     set_fd_nonblocking(ctrl_send_data_pipe_fd[0]);
     set_fd_nonblocking(ctrl_send_data_pipe_fd[1]);
 
-    fds[nfds].fd = ctrl_send_data_pipe_fd[0];
-    fds[nfds].events = POLLIN;
-    nfds++;
+    fds[fd_most_tail].fd = ctrl_send_data_pipe_fd[0];
+    fds[fd_most_tail].events = POLLIN;
+    fd_most_tail++;
 
     while (1) {
-        int poll_cnt = poll(fds, nfds, -1);
+        int poll_cnt = poll(fds, fd_most_tail, -1);
         if (poll_cnt == -1) {
             logger_err("pasv poll failed");
             return NULL;
         }
 
-        for (int i = 0; i < nfds; i++) {
+        for (int i = 0; i < fd_most_tail; i++) {
+            if (fds[i].fd == -1) {
+                continue;
+            }
             client = NULL;
             if (fds[i].revents & POLLIN) {
                 if (fds[i].fd == ctrl_send_data_pipe_fd[0]) {
@@ -272,7 +277,8 @@ static void *pasv_thread(void *args) {
                         }
                         set_fd_nonblocking(client->pasv_client_fd);
                         int flag = 1;
-                        if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag)) == -1) {
+                        if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag,
+                                       sizeof(flag)) == -1) {
                             logger_err("Failed to set up TCP_NODELAY connection");
                             close_connection(client);
                             i = -1;
@@ -292,6 +298,8 @@ static void *pasv_thread(void *args) {
                         int rev_cnt = recv(fds[i].fd, client->recv_buffer, 512, 0);
                         if (!rev_cnt) {
                             close_connection(client);
+                            i = -1;
+                            continue;
                         } else {
                             /* receiving data */
 
@@ -345,6 +353,9 @@ static void *pasv_thread(void *args) {
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
                         close_connection(client);
+                        pthread_mutex_unlock(&client->lock);
+                        i = -1;
+                        continue;
                     }
                     if (client->send_offset == client->send_len) {
                         if (client->data_to_send) {
@@ -360,6 +371,9 @@ static void *pasv_thread(void *args) {
                         }
                         /* 传输结束后，关闭连接 */
                         close_connection(client);
+                        pthread_mutex_unlock(&client->lock);
+                        i = -1;
+                        continue;
                     } else {
                         fds[i].events = POLLOUT;
                     }
