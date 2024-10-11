@@ -4,7 +4,17 @@
 
 #include "pasv_channel.h"
 #include <sys/socket.h>
+
+#if __APPLE__
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+
+#else
 #include <sys/sendfile.h>
+#endif
+
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -285,16 +295,33 @@ static void *pasv_thread(void *args) {
                                     client->send_len - client->send_offset, 0);
                         client->send_offset += sent;
                     } else {
-                        if(!client->file_fd) {
+                        if (!client->file_fd) {
                             client->file_fd = open(client->file_to_send, O_RDONLY);
                         }
+#if __APPLE__
+                        off_t tmp_sent = (off_t) client->send_len - client->send_offset;
+                        int ret = sendfile(client->file_fd,
+                                           fds[i].fd,
+                                           client->send_offset,
+                                           &tmp_sent,
+                                           NULL,
+                                           0);
+                        if (ret == -1 && !tmp_sent) {
+                            sent = -1;
+                        } else {
+                            sent = tmp_sent;
+                            client->send_offset += sent;
+                        }
+#else
                         sent = sendfile(fds[i].fd,
                                         client->file_fd,
                                         &client->send_offset,
                                         client->send_len - client->send_offset);
+#endif
                     }
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
+                        close_connection(client);
                     }
                     if (client->send_offset == client->send_len) {
                         if (client->data_to_send) {
