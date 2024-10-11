@@ -17,6 +17,8 @@ struct sockaddr_in local_addr = {0};
 uint32_t load_ip_addr = 0;
 socklen_t local_len = sizeof(local_addr);
 
+int pasv_send_ctrl_pipe_fd[2];
+
 static void set_fd_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
@@ -27,7 +29,7 @@ int start_listen(int port) {
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
     struct pollfd fds[MAX_CLIENTS];
-    int nfds = 1;
+    int nfds = 0;
     struct client_data *client;
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -47,9 +49,22 @@ int start_listen(int port) {
     }
     listen(server_fd, 5);
 
+    /* 初始化管道 */
+    if (pipe(pasv_send_ctrl_pipe_fd) == -1) {
+        logger_err("ctrl pipe failed");
+        return 1;
+    }
+
+    set_fd_nonblocking(pasv_send_ctrl_pipe_fd[0]);
+    set_fd_nonblocking(pasv_send_ctrl_pipe_fd[1]);
+
     /* 初始化 poll 结构 */
-    fds[0].fd = server_fd;
-    fds[0].events = POLLIN;
+    fds[nfds].fd = server_fd;
+    fds[nfds].events = POLLIN;
+    nfds++;
+    fds[nfds].fd = pasv_send_ctrl_pipe_fd[0];
+    fds[nfds].events = POLLIN;
+    nfds++;
 
     /* 启动被动模式的监听 */
     pasv_start();
@@ -77,6 +92,11 @@ int start_listen(int port) {
                         client = protocol_client_init(client_fd, nfds++);
                         logger_info("new client connected %s:%d", inet_ntoa(client_addr.sin_addr),
                                     ntohs(client_addr.sin_port));
+                    }
+                } else if (fds[i].fd == pasv_send_ctrl_pipe_fd[0]) {
+                    read(pasv_send_ctrl_pipe_fd[0], &client, sizeof(&client));
+                    if (client->sock_fd) {
+                        fds[client->nfds].events |= POLLOUT;
                     }
                 } else {
                     /* 处理 client 传输过来的命令 */
