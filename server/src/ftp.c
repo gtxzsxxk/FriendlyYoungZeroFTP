@@ -9,6 +9,7 @@
 #include "filesystem.h"
 #include "pasv_channel.h"
 #include "listener.h"
+#include "logger.h"
 
 FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
@@ -229,5 +230,97 @@ FTP_FUNC_DEFINE(LIST) {
         }
     }
 
+    return 1;
+}
+
+FTP_FUNC_DEFINE(MKD) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            const char *fullpath = NULL;
+            int free_flag = 0;
+            if (!strcmp(argument, "/")) {
+                fullpath = service_root;
+            } else if (argument[0] == '/') {
+                fullpath = fs_path_join(service_root, argument);
+                free_flag = 1;
+            } else if (argument[0] == '.' && argument[1] == '.' && argument[2] == 0) {
+                /* 上一级目录 */
+                fullpath = fs_path_backward(client->cwd);
+                free_flag = 1;
+            } else {
+                fullpath = fs_path_join(client->cwd, argument);
+                free_flag = 1;
+            }
+            if (fs_directory_allows(service_root, fullpath)) {
+                char *cmd = malloc(256);
+                sprintf(cmd, "mkdir -p %s", fullpath);
+                int ret = system(cmd);
+                free(cmd);
+                if (!ret) {
+                    char *resp = malloc(300);
+                    char *free_handle;
+                    const char *rel_path = fs_path_erase(service_root, fullpath, &free_handle);
+                    sprintf(resp, "\"%s\" has been created", rel_path);
+                    protocol_client_write_response(client, 257, resp);
+                    free(free_handle);
+                    free(resp);
+                } else {
+                    protocol_client_write_response(client, 550, "Failed to create the directory.");
+                }
+            } else {
+                protocol_client_write_response(client, 550, "Not in the root folder.");
+            }
+
+            if (free_flag) {
+                free((void *) fullpath);
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
+
+FTP_FUNC_DEFINE(RMD) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            const char *fullpath = NULL;
+            int free_flag = 0;
+            if (!strcmp(argument, "/")) {
+                fullpath = service_root;
+            } else if (argument[0] == '/') {
+                fullpath = fs_path_join(service_root, argument);
+                free_flag = 1;
+            } else if (argument[0] == '.' && argument[1] == '.' && argument[2] == 0) {
+                /* 上一级目录 */
+                fullpath = fs_path_backward(client->cwd);
+                free_flag = 1;
+            } else {
+                fullpath = fs_path_join(client->cwd, argument);
+                free_flag = 1;
+            }
+            if (fs_directory_exists(fullpath)) {
+                if (fs_directory_allows(service_root, fullpath)) {
+                    char *cmd = malloc(256);
+                    sprintf(cmd, "rm -rf %s", fullpath);
+                    int ret = system(cmd);
+                    free(cmd);
+                    if (!ret) {
+                        protocol_client_write_response(client, 250, "Directory was removed successfully.");
+                    } else {
+                        protocol_client_write_response(client, 550, "Failed to remove the directory.");
+                    }
+                } else {
+                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                }
+            } else {
+                protocol_client_write_response(client, 550, "No such file or directory.");
+            }
+
+            if (free_flag) {
+                free((void *) fullpath);
+            }
+            return 0;
+        }
+    }
     return 1;
 }

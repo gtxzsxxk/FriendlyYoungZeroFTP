@@ -94,6 +94,8 @@ void protocol_on_recv(int fd) {
     HANDLE_COMMAND(TYPE)
     HANDLE_COMMAND(PASV)
     HANDLE_COMMAND(LIST)
+    HANDLE_COMMAND(MKD)
+    HANDLE_COMMAND(RMD)
 
     protocol_client_write_response(client, 504, "State machine failed");
 }
