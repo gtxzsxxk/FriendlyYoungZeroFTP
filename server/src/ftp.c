@@ -16,7 +16,7 @@ FTP_FUNC_DEFINE(USER) {
         strcpy(client->username, argument);
         if (!strtok(NULL, " ")) {
             client->ftp_state = NEED_PASSWORD;
-            protocol_client_write_response(client, 331, "Password is required");
+            protocol_client_resp_by_state_machine(client, 331, "Password is required");
             return 0;
         }
     }
@@ -45,7 +45,7 @@ FTP_FUNC_DEFINE(PWD) {
             char *free_handle;
             const char *rel_path = fs_path_erase(service_root, client->cwd, &free_handle);
             sprintf(resp, "\"%s\" is current directory", rel_path);
-            protocol_client_write_response(client, 257, resp);
+            protocol_client_resp_by_state_machine(client, 257, resp);
             free(free_handle);
             free(resp);
             return 0;
@@ -76,12 +76,12 @@ FTP_FUNC_DEFINE(CWD) {
             if (fs_directory_exists(fullpath)) {
                 if (fs_directory_allows(service_root, fullpath)) {
                     strcpy(client->cwd, fullpath);
-                    protocol_client_write_response(client, 250, "Okay.");
+                    protocol_client_resp_by_state_machine(client, 250, "Okay.");
                 } else {
-                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
                 }
             } else {
-                protocol_client_write_response(client, 550, "No such file or directory.");
+                protocol_client_resp_by_state_machine(client, 550, "No such file or directory.");
             }
 
             if (free_flag) {
@@ -102,12 +102,12 @@ FTP_FUNC_DEFINE(CDUP) {
             if (fs_directory_exists(fullpath)) {
                 if (fs_directory_allows(service_root, fullpath)) {
                     strcpy(client->cwd, fullpath);
-                    protocol_client_write_response(client, 250, "Okay.");
+                    protocol_client_resp_by_state_machine(client, 250, "Okay.");
                 } else {
-                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
                 }
             } else {
-                protocol_client_write_response(client, 550, "No such file or directory.");
+                protocol_client_resp_by_state_machine(client, 550, "No such file or directory.");
             }
 
             free((void *) fullpath);
@@ -122,15 +122,15 @@ FTP_FUNC_DEFINE(TYPE) {
         if (argument) {
             if (!strcmp(argument, "A")) {
                 client->data_type = ASCII;
-                protocol_client_write_response(client, 200, "Type set to Ascii");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to Ascii");
                 return 0;
             } else if (!strcmp(argument, "I")) {
                 client->data_type = BINARY;
-                protocol_client_write_response(client, 200, "Type set to I");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to I");
                 return 0;
             } else if (!strcmp(argument, "L")) {
                 client->data_type = BINARY;
-                protocol_client_write_response(client, 200, "Type set to L");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to L");
                 return 0;
             }
         }
@@ -152,11 +152,11 @@ FTP_FUNC_DEFINE(PASV) {
                         load_ip_addr & 0xff,
                         client->pasv_port / 256,
                         client->pasv_port % 256);
-                protocol_client_write_response(client, 227, resp);
+                protocol_client_resp_by_state_machine(client, 227, resp);
                 free(resp);
             } else {
                 client->conn_type = NOT_SPECIFIED;
-                protocol_client_write_response(client, 434, "No available port assigned for this PASV.");
+                protocol_client_resp_by_state_machine(client, 434, "No available port assigned for this PASV.");
             }
             return 0;
         }
@@ -169,10 +169,10 @@ FTP_FUNC_DEFINE(LIST) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
             if (client->conn_type == NOT_SPECIFIED) {
-                protocol_client_write_response(client, 550, "Specify the PORT/PASV mode.");
+                protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
             } else if (client->conn_type == PASV) {
                 if (!fs_directory_allows(service_root, client->cwd)) {
-                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
                     return 0;
                 }
                 char shell[384];
@@ -180,7 +180,7 @@ FTP_FUNC_DEFINE(LIST) {
                 sprintf(shell, "ls -l %s", client->cwd);
                 FILE *fp = popen(shell, "r");
                 if (!fp) {
-                    protocol_client_write_response(client, 451, "Failed to call ls -l.");
+                    protocol_client_resp_by_state_machine(client, 451, "Failed to call ls -l.");
                 } else {
                     const size_t init_len = 8192;
                     size_t buf_len = init_len;
@@ -263,14 +263,14 @@ FTP_FUNC_DEFINE(MKD) {
                     char *free_handle;
                     const char *rel_path = fs_path_erase(service_root, fullpath, &free_handle);
                     sprintf(resp, "\"%s\" has been created", rel_path);
-                    protocol_client_write_response(client, 257, resp);
+                    protocol_client_resp_by_state_machine(client, 257, resp);
                     free(free_handle);
                     free(resp);
                 } else {
-                    protocol_client_write_response(client, 550, "Failed to create the directory.");
+                    protocol_client_resp_by_state_machine(client, 550, "Failed to create the directory.");
                 }
             } else {
-                protocol_client_write_response(client, 550, "Not in the root folder.");
+                protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
             }
 
             if (free_flag) {
@@ -307,15 +307,15 @@ FTP_FUNC_DEFINE(RMD) {
                     int ret = system(cmd);
                     free(cmd);
                     if (!ret) {
-                        protocol_client_write_response(client, 250, "Directory was removed successfully.");
+                        protocol_client_resp_by_state_machine(client, 250, "Directory was removed successfully.");
                     } else {
-                        protocol_client_write_response(client, 550, "Failed to remove the directory.");
+                        protocol_client_resp_by_state_machine(client, 550, "Failed to remove the directory.");
                     }
                 } else {
-                    protocol_client_write_response(client, 550, "Not in the root folder.");
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
                 }
             } else {
-                protocol_client_write_response(client, 550, "No such file or directory.");
+                protocol_client_resp_by_state_machine(client, 550, "No such file or directory.");
             }
 
             if (free_flag) {

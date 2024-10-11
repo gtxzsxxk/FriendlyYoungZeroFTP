@@ -54,7 +54,7 @@ struct client_data *protocol_client_init(int fd, int nfds) {
     pthread_mutex_init(&clients[index].net_lock, NULL);
     strcpy(clients[index].cwd, service_root);
 
-    protocol_client_write_response(&clients[index], 220, BANNER_STRING);
+    protocol_client_resp_by_state_machine(&clients[index], 220, BANNER_STRING);
 
     return &clients[index];
 }
@@ -86,21 +86,21 @@ void protocol_on_recv(int fd) {
     }
     char *argument = strtok(NULL, " ");
     if (!strcmp(command, "AUTH")) {
-        protocol_client_write_response(client, 504, "Unknown instruction");
+        protocol_client_resp_by_state_machine(client, 504, "Unknown instruction");
         return;
-    }
-    HANDLE_COMMAND(USER)
-    HANDLE_COMMAND(PASS)
-    HANDLE_COMMAND(PWD)
-    HANDLE_COMMAND(CWD)
-    HANDLE_COMMAND(CDUP)
-    HANDLE_COMMAND(TYPE)
-    HANDLE_COMMAND(PASV)
-    HANDLE_COMMAND(LIST)
-    HANDLE_COMMAND(MKD)
-    HANDLE_COMMAND(RMD)
+    } \
+ HANDLE_COMMAND(USER) \
+ HANDLE_COMMAND(PASS) \
+ HANDLE_COMMAND(PWD) \
+ HANDLE_COMMAND(CWD) \
+ HANDLE_COMMAND(CDUP) \
+ HANDLE_COMMAND(TYPE) \
+ HANDLE_COMMAND(PASV) \
+ HANDLE_COMMAND(LIST) \
+ HANDLE_COMMAND(MKD) \
+ HANDLE_COMMAND(RMD)
 
-    protocol_client_write_response(client, 504, "State machine failed");
+    protocol_client_resp_by_state_machine(client, 504, "State machine failed");
 }
 
 void protocol_client_resp_by_state_machine(struct client_data *client, int code, const char *data) {
