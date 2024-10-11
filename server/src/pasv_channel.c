@@ -110,7 +110,6 @@ int pasv_send_data(int port, const char *data, size_t len) {
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
-    logger_info("client %p", client);
     write(pipe_fd[1], &client, sizeof(&client));
     pthread_mutex_unlock(&client->lock);
     return 0;
@@ -166,7 +165,6 @@ static void *pasv_thread(void *args) {
             if (fds[i].revents & POLLIN) {
                 if (fds[i].fd == pipe_fd[0]) {
                     /* 需要传输数据 */
-                    logger_info("Need xmit data");
                     read(pipe_fd[0], &client, sizeof(&client));
                     if (client->pasv_client_fd) {
                         fds[client->pasv_client_fd].events |= POLLOUT;
@@ -195,7 +193,6 @@ static void *pasv_thread(void *args) {
                     pthread_mutex_lock(&client->lock);
                     if (!client_is_xmitting) {
                         client->pasv_client_fd = accept(fds[i].fd, (struct sockaddr *) &client_addr, &client_len);
-                        logger_info("accepted %p", client);
                         if (client->pasv_client_fd <= 0) {
                             logger_err("Failed to accept connection");
                             return NULL;
@@ -206,8 +203,6 @@ static void *pasv_thread(void *args) {
                         client->client_nfds = nfds++;
 
                         if (client->state_machine == NEED_SEND) {
-                            logger_info("accepted and need pollout %d %d %d", fds[client->client_nfds].revents,
-                                        client->client_nfds, i);
                             fds[client->client_nfds].events |= POLLOUT;
                         }
                     } else {
@@ -239,7 +234,6 @@ static void *pasv_thread(void *args) {
                     ssize_t sent = send(fds[i].fd, client->data_to_send, client->send_len, 0);
                     free((void *) client->data_to_send);
                     client->data_to_send = NULL;
-                    logger_info("send %d bytes data to the pasv client with fd %d", sent, fds[i].fd);
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
                     }
@@ -248,7 +242,6 @@ static void *pasv_thread(void *args) {
                     client->state_machine = IDLE;
                 } else {
                     logger_err("The pasv client with fd %d should not send by get POLLOUT", fds[i].fd);
-                    continue;
                 }
                 /* 传输结束后，关闭连接 */
                 close_connection(client);
