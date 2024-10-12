@@ -18,7 +18,7 @@ socklen_t local_len = sizeof(local_addr);
 int pasv_send_ctrl_pipe_fd[2];
 
 static struct pollfd fds[MAX_CLIENTS];
-static int nfds = 0;
+static int fd_most_tail = 0;
 
 static void set_fd_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -27,9 +27,11 @@ static void set_fd_nonblocking(int fd) {
 
 static int push_new_fd(struct pollfd fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (!fds[i].fd) {
+        if (fds[i].fd == -1) {
             fds[i] = fd;
-            nfds++;
+            if (i >= fd_most_tail) {
+                fd_most_tail++;
+            }
             return i;
         }
     }
@@ -38,10 +40,9 @@ static int push_new_fd(struct pollfd fd) {
 
 static void close_fd_connection(int index) {
     close(fds[index].fd);
-    fds[index].fd = 0;
+    fds[index].fd = -1;
     fds[index].events = 0;
     fds[index].revents = 0;
-    nfds--;
 }
 
 static void close_client_connection(struct client_data *client) {
@@ -84,25 +85,29 @@ int start_listen(int port) {
     set_fd_nonblocking(pasv_send_ctrl_pipe_fd[0]);
     set_fd_nonblocking(pasv_send_ctrl_pipe_fd[1]);
 
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        fds[i].fd = -1;
+    }
+
     /* 初始化 poll 结构 */
-    fds[nfds].fd = server_fd;
-    fds[nfds].events = POLLIN;
-    nfds++;
-    fds[nfds].fd = pasv_send_ctrl_pipe_fd[0];
-    fds[nfds].events = POLLIN;
-    nfds++;
+    fds[fd_most_tail].fd = server_fd;
+    fds[fd_most_tail].events = POLLIN;
+    fd_most_tail++;
+    fds[fd_most_tail].fd = pasv_send_ctrl_pipe_fd[0];
+    fds[fd_most_tail].events = POLLIN;
+    fd_most_tail++;
 
     /* 启动被动模式的监听 */
     pasv_start();
 
     while (1) {
-        int poll_cnt = poll(fds, nfds, -1);
+        int poll_cnt = poll(fds, fd_most_tail, -1);
         if (poll_cnt == -1) {
             logger_err("poll failed");
             return 1;
         }
 
-        for (int i = 0; i < nfds; i++) {
+        for (int i = 0; i < fd_most_tail; i++) {
             client = NULL;
             if (fds[i].revents & POLLIN) {
                 if (fds[i].fd == server_fd) {
@@ -122,12 +127,14 @@ int start_listen(int port) {
                                 .fd = client_fd,
                                 .events = POLLIN,
                         };
-                        if (nfds == MAX_CLIENTS) {
+                        int fd_pos = push_new_fd(fd);
+                        if (fd_pos < 0) {
                             logger_err("Clients number exceeded!");
                             close(client_fd);
+                            i = -1;
                             continue;
                         }
-                        client = protocol_client_init(client_fd, push_new_fd(fd));
+                        client = protocol_client_init(client_fd, fd_pos);
                         client->addr = client_addr;
                         logger_info("new client connected %s:%d", inet_ntoa(client_addr.sin_addr),
                                     ntohs(client_addr.sin_port));
