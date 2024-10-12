@@ -178,7 +178,7 @@ int pasv_sendfile(int port, const char *path,
     client->send_offset = 0;
     client->data_to_send = NULL;
     strcpy(client->file_to_send, path);
-    client->file_fd = 0;
+    client->file_fd = -1;
     client->send_len = fs_get_file_size(path);
     client->state_machine = NEED_SEND;
     if (ctrl_client) {
@@ -201,6 +201,9 @@ static void close_connection(struct pasv_client_data *client) {
     fds[client->server_nfds].events = 0;
     if (client->data_to_send) {
         free((void *) client->data_to_send);
+    }
+    if (client->file_fd > 0) {
+        close(client->file_fd);
     }
 
     memset(client, 0, sizeof(struct pasv_client_data));
@@ -326,7 +329,7 @@ static void *pasv_thread(void *args) {
                                     client->send_len - client->send_offset, 0);
                         client->send_offset += sent;
                     } else {
-                        if (!client->file_fd) {
+                        if (client->file_fd <= 0) {
                             client->file_fd = open(client->file_to_send, O_RDONLY);
                         }
 #if __APPLE__
@@ -361,6 +364,9 @@ static void *pasv_thread(void *args) {
                         if (client->data_to_send) {
                             free((void *) client->data_to_send);
                             client->data_to_send = NULL;
+                        } else {
+                            close(client->file_fd);
+                            client->file_fd = -1;
                         }
                         /* Callback */
                         if (client->ctrl_client) {
