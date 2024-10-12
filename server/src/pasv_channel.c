@@ -323,17 +323,21 @@ static void *pasv_thread(void *args) {
                 pthread_mutex_lock(&client->lock);
                 if (client->state_machine == NEED_SEND) {
                     ssize_t sent;
+                    size_t send_chunk_size = client->send_len - client->send_offset;
+                    if (send_chunk_size > MAX_SEND_CHUNK) {
+                        send_chunk_size = MAX_SEND_CHUNK;
+                    }
                     if (client->data_to_send) {
                         sent = send(fds[i].fd,
                                     client->data_to_send + client->send_offset,
-                                    client->send_len - client->send_offset, 0);
+                                    send_chunk_size, 0);
                         client->send_offset += sent;
                     } else {
                         if (client->file_fd <= 0) {
                             client->file_fd = open(client->file_to_send, O_RDONLY);
                         }
 #if __APPLE__
-                        off_t tmp_sent = (off_t) client->send_len - client->send_offset;
+                        off_t tmp_sent = (off_t) send_chunk_size;
                         int ret = sendfile(client->file_fd,
                                            fds[i].fd,
                                            client->send_offset,
@@ -350,7 +354,7 @@ static void *pasv_thread(void *args) {
                         sent = sendfile(fds[i].fd,
                                         client->file_fd,
                                         &client->send_offset,
-                                        client->send_len - client->send_offset);
+                                        send_chunk_size);
 #endif
                     }
                     if (sent < 0) {

@@ -12,6 +12,8 @@
 #define PORT_RANGE_START 20000
 #define PORT_RANGE_END   60000
 
+#define MAX_SEND_CHUNK 65536
+
 int pasv_client_new(int *port);
 
 int pasv_send_data(int port, const char *data, size_t len,
