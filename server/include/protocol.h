@@ -14,6 +14,7 @@
 enum net_state_machine {
     IDLE,
     NEED_SEND,
+    NEED_RECV,
 };
 
 enum ftp_state_machine {

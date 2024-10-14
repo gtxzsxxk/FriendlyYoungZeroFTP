@@ -376,3 +376,61 @@ FTP_FUNC_DEFINE(RETR) {
     }
     return 1;
 }
+
+FTP_FUNC_DEFINE(STOR) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (client->conn_type == NOT_SPECIFIED) {
+            protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
+        } else if (client->conn_type == PASV) {
+            if (argument) {
+                /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
+                 * 参数应该从full_instruction中获取
+                 */
+                char tmp = client->full_instruction[5];
+                client->full_instruction[5] = 0;
+                if ((strcmp(client->full_instruction, "STOR ") != 0) &&
+                    (strcmp(client->full_instruction, "stor ") != 0)) {
+                    return 1;
+                }
+                client->full_instruction[5] = tmp;
+                argument = &client->full_instruction[5];
+                const char *fullpath = NULL;
+                if (argument[0] == '/') {
+                    fullpath = fs_path_join(service_root, argument);
+                } else {
+                    fullpath = fs_path_join(client->cwd, argument);
+                }
+                if (fs_directory_allows(service_root, fullpath)) {
+                    char *dir = malloc(256);
+                    fs_get_directory(fullpath, dir);
+                    if (!fs_directory_exists(dir)) {
+                        char *cmd = malloc(256);
+                        sprintf(cmd, "mkdir -p %s", dir);
+                        int ret = system(cmd);
+                        free(cmd);
+                        if (ret != 0) {
+                            protocol_client_resp_by_state_machine(client, 451, "Cannot create the folder.");
+                            return 0;
+                        }
+                    }
+                    free(dir);
+                    const char *ascii = "ASCII";
+                    const char *binary = "BINARY";
+                    char *resp = malloc(512);
+                    sprintf(resp, "%d %s\r\n", 226, "Transfer complete.");
+                    pasv_recvfile(client->pasv_port, fullpath, client, resp);
+                    sprintf(resp, "Opening %s mode data connection for %s.",
+                            client->data_type == BINARY ? binary : ascii,
+                            fs_get_filename(fullpath));
+                    protocol_client_resp_by_state_machine(client, 150, resp);
+                    free(resp);
+                } else {
+                    protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
+                }
+                free((void *) fullpath);
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
