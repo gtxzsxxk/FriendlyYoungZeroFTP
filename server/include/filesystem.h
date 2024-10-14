@@ -26,4 +26,6 @@ const char *fs_get_filename(const char *path);
 
 size_t fs_get_file_size(const char *path);
 
+void fs_get_directory(const char *file_path, char *directory_path);
+
 #endif //SERVER_FILESYSTEM_H

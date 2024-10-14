@@ -127,3 +127,19 @@ size_t fs_get_file_size(const char *path) {
         return -1;
     }
 }
+
+void fs_get_directory(const char *file_path, char *directory_path) {
+    // 复制文件路径到目标缓冲区
+    strcpy(directory_path, file_path);
+
+    // 找到最后一个 '/'
+    char *last_slash = strrchr(directory_path, '/');
+
+    // 如果找到了 '/'
+    if (last_slash != NULL) {
+        *last_slash = '\0'; // 将最后一个 '/' 替换为终止符 '\0'
+    } else {
+        // 如果路径中没有 '/'，说明它没有目录部分
+        strcpy(directory_path, ".");
+    }
+}
