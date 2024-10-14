@@ -96,6 +96,7 @@ void protocol_on_recv(int fd) {
  HANDLE_COMMAND(CDUP) \
  HANDLE_COMMAND(TYPE) \
  HANDLE_COMMAND(SYST) \
+ HANDLE_COMMAND(QUIT) \
  HANDLE_COMMAND(PASV) \
  HANDLE_COMMAND(LIST) \
  HANDLE_COMMAND(MKD) \
@@ -110,4 +111,8 @@ void protocol_client_resp_by_state_machine(struct client_data *client, int code,
     pthread_mutex_lock(&client->net_lock);
     client->net_state = NEED_SEND;
     sprintf(client->cmd_send, "%d %s\r\n", code, data);
+}
+
+void protocol_client_quit(struct client_data *client) {
+    /* 使用管道，进入POLL后，关闭client的连接 */
 }

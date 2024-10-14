@@ -150,6 +150,18 @@ FTP_FUNC_DEFINE(SYST) {
     return 1;
 }
 
+FTP_FUNC_DEFINE(QUIT) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (!argument) {
+            /* 断开连接 */
+            protocol_client_resp_by_state_machine(client, 221, "Goodbye");
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 FTP_FUNC_DEFINE(PASV) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
