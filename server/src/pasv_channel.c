@@ -19,6 +19,9 @@
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+
+#define _GNU_SOURCE
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -28,6 +31,14 @@
 #include "logger.h"
 #include "listener.h"
 #include "filesystem.h"
+
+#ifndef SPLICE_F_MOVE
+#define SPLICE_F_MOVE   0
+
+ssize_t splice(int fd_in, loff_t *off_in, int fd_out,
+               loff_t *off_out, size_t len, unsigned int flags);
+
+#endif
 
 struct pasv_client_data {
     int port;
@@ -41,7 +52,7 @@ struct pasv_client_data {
     off_t send_offset;
     size_t send_len;
     pthread_mutex_t lock;
-    char recv_buffer[1024];
+    int write_pipe_fd[2];
     char ctrl_send_buffer[512];
     struct client_data *ctrl_client;
 
@@ -118,6 +129,9 @@ int pasv_client_new(int *port) {
             client->pasv_server_fd = sockfd;
             client->data_to_send = NULL;
             client->send_len = 0;
+            client->write_pipe_fd[0] = -1;
+            client->write_pipe_fd[1] = -1;
+            client->file_fd = -1;
             struct pollfd fd = {
                     .fd = client->pasv_server_fd,
                     .events = POLLIN,
@@ -202,6 +216,46 @@ int pasv_sendfile(int port, const char *path,
     return 0;
 }
 
+#include <time.h>
+
+int pasv_recvfile(int port, const char *path,
+                  struct client_data *ctrl_client,
+                  const char *end_msg) {
+    struct pasv_client_data *client = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (pasv_clients[i].port == port) {
+            client = &pasv_clients[i];
+            break;
+        }
+    }
+    if (!client) {
+        logger_err("No such a client with port %d", port);
+        return -1;
+    }
+    pthread_mutex_lock(&client->lock);
+    client->send_offset = 0;
+    client->data_to_send = NULL;
+    client->file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (client->file_fd < 0) {
+        return 1;
+    }
+    if (pipe(client->write_pipe_fd) < 0) {
+        close(client->file_fd);
+        return 1;
+    }
+    client->send_len = 0;
+    client->state_machine = NEED_RECV;
+    if (ctrl_client) {
+        strcpy(client->ctrl_send_buffer, end_msg);
+        client->ctrl_client = ctrl_client;
+    } else {
+        client->ctrl_client = NULL;
+    }
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    pthread_mutex_unlock(&client->lock);
+    return 0;
+}
+
 static void close_connection(struct pasv_client_data *client) {
     close(client->pasv_server_fd);
     close(client->pasv_client_fd);
@@ -267,7 +321,11 @@ static void *pasv_thread(void *args) {
                     /* 需要传输数据 */
                     read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
                     if (client->pasv_client_fd) {
-                        fds[client->pasv_client_fd].events |= POLLOUT;
+                        if (client->state_machine == NEED_SEND) {
+                            fds[client->pasv_client_fd].events |= POLLOUT;
+                        } else if (client->state_machine == NEED_RECV) {
+                            fds[client->pasv_client_fd].events = POLLIN;
+                        }
                     }
                 } else {
                     int client_is_xmitting = 0;
@@ -330,17 +388,49 @@ static void *pasv_thread(void *args) {
 
                         if (client->state_machine == NEED_SEND) {
                             fds[client->client_nfds].events |= POLLOUT;
+                        } else if (client->state_machine == NEED_RECV) {
+                            fds[client->client_nfds].events = POLLIN;
                         }
                     } else {
                         /* 用户正在传输来数据 */
-                        int rev_cnt = recv(fds[i].fd, client->recv_buffer, 512, 0);
-                        if (!rev_cnt) {
+                        ssize_t rev_cnt = splice(fds[i].fd, NULL, client->write_pipe_fd[1], NULL, 4096,
+                                                 SPLICE_F_MOVE);
+                        logger_info("Pasv client with fd %d is transmitting %d bytes", fds[i].fd, rev_cnt);
+                        if (rev_cnt == 0) {
+                            /* 连接被关闭 */
+                            logger_info("Pasv client with fd %d ended uploading", fds[i].fd);
+                            /* Callback */
+                            if (client->ctrl_client) {
+                                pthread_mutex_lock(&client->ctrl_client->net_lock);
+                                strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
+                                client->ctrl_client->net_state = NEED_SEND;
+                                write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                      sizeof(&client->ctrl_client));
+                            }
                             close_connection(client);
                             i = -1;
                             continue;
+                        }
+                        if (rev_cnt < 0) {
+                            logger_err("Pasv client with fd %d cannot use splice", fds[i].fd);
+                            close_connection(client);
+                            i = -1;
+                            continue;
+                        }
+                        if (client->state_machine == NEED_RECV) {
+                            ssize_t wr_cnt = splice(client->write_pipe_fd[0], NULL, client->file_fd, NULL, rev_cnt,
+                                                    SPLICE_F_MOVE);
+                            if (wr_cnt < 0) {
+                                logger_err("Pasv client with fd %d cannot use splice to write file", fds[i].fd);
+                                close_connection(client);
+                                i = -1;
+                                continue;
+                            }
                         } else {
-                            /* receiving data */
-
+                            logger_err("Pasv client with fd %d is not in a send state", fds[i].fd);
+                            close_connection(client);
+                            i = -1;
+                            continue;
                         }
                     }
                     pthread_mutex_unlock(&client->lock);
