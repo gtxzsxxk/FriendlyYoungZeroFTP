@@ -215,6 +215,12 @@ static void close_connection(struct pasv_client_data *client) {
     if (client->file_fd > 0) {
         close(client->file_fd);
     }
+    if (client->write_pipe_fd[0] > 0) {
+        close(client->write_pipe_fd[0]);
+    }
+    if (client->write_pipe_fd[1] > 0) {
+        close(client->write_pipe_fd[1]);
+    }
 
     pthread_mutex_unlock(&client->lock);
     pthread_mutex_destroy(&client->lock);
@@ -296,6 +302,22 @@ static void *pasv_thread(void *args) {
                         if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag,
                                        sizeof(flag)) == -1) {
                             logger_err("Failed to set up TCP_NODELAY connection");
+                            close_connection(client);
+                            i = -1;
+                            continue;
+                        }
+                        flag = 1;
+                        if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_QUICKACK, (char *) &flag,
+                                       sizeof(flag)) == -1) {
+                            logger_err("Failed to set up TCP_QUICKACK connection");
+                            close_connection(client);
+                            i = -1;
+                            continue;
+                        }
+                        flag = 1;
+                        if (setsockopt(client->pasv_client_fd, SOL_SOCKET, SO_RCVLOWAT, (char *) &flag,
+                                       sizeof(flag)) == -1) {
+                            logger_err("Failed to set up SO_RCVLOWAT connection");
                             close_connection(client);
                             i = -1;
                             continue;
