@@ -96,11 +96,14 @@ int pasv_client_new(int *port) {
         return -1;
     }
 
+    pthread_mutex_init(&client->lock, NULL);
+
     srand(time(NULL) + getpid());
     for (attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sockfd < 0) {
             logger_err("%s", "Failed to create socket for pasv.");
+            pthread_mutex_unlock(&client->lock);
             return -1;
         }
         set_fd_nonblocking(sockfd);
@@ -122,8 +125,10 @@ int pasv_client_new(int *port) {
             client->server_nfds = push_new_fd(fd);
             if (client->server_nfds == -1) {
                 logger_err("Client numbers for pasv exceeded!");
+                pthread_mutex_unlock(&client->lock);
                 return 1;
             }
+            pthread_mutex_unlock(&client->lock);
             return 0;
         } else {
             close(sockfd);
@@ -131,6 +136,7 @@ int pasv_client_new(int *port) {
     }
 
     logger_err("Failed to find available port for pasv xmit after %d tries", MAX_ATTEMPTS);
+    pthread_mutex_unlock(&client->lock);
     return -1;
 }
 
@@ -210,6 +216,8 @@ static void close_connection(struct pasv_client_data *client) {
         close(client->file_fd);
     }
 
+    pthread_mutex_unlock(&client->lock);
+    pthread_mutex_destroy(&client->lock);
     memset(client, 0, sizeof(struct pasv_client_data));
 }
 
@@ -220,7 +228,6 @@ static void *pasv_thread(void *args) {
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         fds[i].fd = -1;
-        pthread_mutex_init(&(pasv_clients[i].lock), NULL);
     }
 
     pthread_mutex_init(&fd_lock, NULL);
@@ -366,7 +373,6 @@ static void *pasv_thread(void *args) {
                     if (sent < 0) {
                         logger_err("Cannot send data to the pasv client with fd %d", fds[i].fd);
                         close_connection(client);
-                        pthread_mutex_unlock(&client->lock);
                         i = -1;
                         continue;
                     }
@@ -387,7 +393,6 @@ static void *pasv_thread(void *args) {
                         }
                         /* 传输结束后，关闭连接 */
                         close_connection(client);
-                        pthread_mutex_unlock(&client->lock);
                         i = -1;
                         continue;
                     } else {
