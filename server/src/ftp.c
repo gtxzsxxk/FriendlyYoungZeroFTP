@@ -139,6 +139,17 @@ FTP_FUNC_DEFINE(TYPE) {
     return 1;
 }
 
+FTP_FUNC_DEFINE(SYST) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (!argument) {
+            protocol_client_resp_by_state_machine(client, 215, "UNIX Type: L8");
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 FTP_FUNC_DEFINE(PASV) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
