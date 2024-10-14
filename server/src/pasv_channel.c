@@ -51,6 +51,7 @@ struct pasv_client_data {
 struct pasv_client_data pasv_clients[MAX_CLIENTS];
 static struct pollfd fds[MAX_CLIENTS];
 static int fd_most_tail = 0;
+pthread_mutex_t fd_lock;
 
 int ctrl_send_data_pipe_fd[2];
 
@@ -62,15 +63,18 @@ static void set_fd_nonblocking(int fd) {
 }
 
 static int push_new_fd(struct pollfd fd) {
+    pthread_mutex_lock(&fd_lock);
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (fds[i].fd == -1) {
             fds[i] = fd;
             if (i >= fd_most_tail) {
                 fd_most_tail++;
             }
+            pthread_mutex_unlock(&fd_lock);
             return i;
         }
     }
+    pthread_mutex_unlock(&fd_lock);
     return -1;
 }
 
@@ -219,6 +223,8 @@ static void *pasv_thread(void *args) {
         pthread_mutex_init(&(pasv_clients[i].lock), NULL);
     }
 
+    pthread_mutex_init(&fd_lock, NULL);
+
     if (pipe(ctrl_send_data_pipe_fd) == -1) {
         logger_err("pasv pipe failed");
         return NULL;
@@ -237,7 +243,7 @@ static void *pasv_thread(void *args) {
             logger_err("pasv poll failed");
             return NULL;
         }
-
+        pthread_mutex_lock(&fd_lock);
         for (int i = 0; i < fd_most_tail; i++) {
             if (fds[i].fd == -1) {
                 continue;
@@ -392,8 +398,11 @@ static void *pasv_thread(void *args) {
                 }
                 pthread_mutex_unlock(&client->lock);
             }
+            pthread_mutex_unlock(&fd_lock);
         }
     }
+
+    pthread_mutex_destroy(&fd_lock);
     return NULL;
 }
 
