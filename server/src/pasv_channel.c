@@ -395,7 +395,6 @@ static void *pasv_thread(void *args) {
                         /* 用户正在传输来数据 */
                         ssize_t rev_cnt = splice(fds[i].fd, NULL, client->write_pipe_fd[1], NULL, 4096,
                                                  SPLICE_F_MOVE);
-                        logger_info("Pasv client with fd %d is transmitting %d bytes", fds[i].fd, rev_cnt);
                         if (rev_cnt == 0) {
                             /* 连接被关闭 */
                             logger_info("Pasv client with fd %d ended uploading", fds[i].fd);
