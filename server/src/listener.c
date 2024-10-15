@@ -10,6 +10,7 @@
 #include "logger.h"
 #include "protocol.h"
 #include "pasv_channel.h"
+#include "port_channel.h"
 
 struct sockaddr_in local_addr = {0};
 uint32_t load_ip_addr = 0;
@@ -106,8 +107,10 @@ int start_listen(int port) {
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
 
-    /* 启动被动模式的监听 */
+    /* 启动被动模式的线程 */
     pasv_start();
+    /* 启动主动模式的线程 */
+    port_start();
 
     while (1) {
         int poll_cnt = poll(fds, fd_most_tail, -1);

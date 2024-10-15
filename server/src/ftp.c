@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "filesystem.h"
 #include "pasv_channel.h"
+#include "port_channel.h"
 #include "listener.h"
 #include "logger.h"
 
@@ -185,6 +186,47 @@ FTP_FUNC_DEFINE(PASV) {
         }
     }
 
+    return 1;
+}
+
+FTP_FUNC_DEFINE(PORT) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            int cnt = 0;
+            int digits[6];
+            char address_port[128];
+            strcpy(address_port, argument);
+            char *segment, *endptr;
+            for (segment = strtok(address_port, ","); segment; segment = strtok(NULL, ",")) {
+                digits[cnt++] = (int) strtol(segment, &endptr, 10);
+                if (*endptr != '\0') {
+                    goto fail;
+                }
+            }
+            if (cnt != 6) {
+                goto fail;
+            }
+            uint32_t target_ip =
+                    (address_port[0] << 24) |
+                    (address_port[1] << 16) |
+                    (address_port[2] << 8) |
+                    address_port[3];
+            struct sockaddr_in target_addr;
+            target_addr.sin_port = htons(address_port[4] * 256 + address_port[5]);
+            target_addr.sin_addr.s_addr = htonl(target_ip);
+
+            if (!port_client_new(target_addr)) {
+                client->conn_type = PORT;
+                protocol_client_resp_by_state_machine(client, 200, "PORT command successful.");
+            } else {
+                client->conn_type = NOT_SPECIFIED;
+                protocol_client_resp_by_state_machine(client, 434, "Failed to start PORT.");
+            }
+            return 0;
+        }
+    }
+
+    fail:
     return 1;
 }
 
