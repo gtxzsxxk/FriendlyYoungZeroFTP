@@ -214,8 +214,6 @@ int pasv_sendfile(int port, const char *path,
     return 0;
 }
 
-#include <time.h>
-
 int pasv_recvfile(int port, const char *path,
                   struct client_data *ctrl_client,
                   const char *end_msg) {

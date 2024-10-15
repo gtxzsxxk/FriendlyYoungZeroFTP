@@ -155,8 +155,10 @@ int start_listen(int port) {
                     }
                 } else if (fds[i].fd == exit_fd[0]) {
                     /* 关闭连接 */
-                    read(pasv_send_ctrl_pipe_fd[0], &client, sizeof(&client));
-                    close_client_connection(client);
+                    read(exit_fd[0], &client, sizeof(&client));
+                    if(client->net_state == NEED_QUIT) {
+                        fds[client->nfds].events |= POLLOUT;
+                    }
                 } else {
                     /* 处理 client 传输过来的命令 */
                     client = protocol_client_by_fd(fds[i].fd);
@@ -218,6 +220,10 @@ int start_listen(int port) {
                 /* 恢复 POLLIN */
                 fds[i].events = POLLIN;
 
+                if(client->net_state == NEED_QUIT) {
+                    close_client_connection(client);
+                    continue;
+                }
                 client->net_state = IDLE;
             } else if (fds[i].revents & POLLNVAL) {
                 if (i > 1) {

@@ -16,6 +16,7 @@ enum net_state_machine {
     NEW_CLIENT,
     NEED_SEND,
     NEED_RECV,
+    NEED_QUIT
 };
 
 enum ftp_state_machine {
