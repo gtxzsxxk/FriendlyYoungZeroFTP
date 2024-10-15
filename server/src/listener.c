@@ -16,6 +16,7 @@ uint32_t load_ip_addr = 0;
 socklen_t local_len = sizeof(local_addr);
 
 int pasv_send_ctrl_pipe_fd[2];
+int exit_fd[2];
 
 static struct pollfd fds[MAX_CLIENTS];
 static int fd_most_tail = 0;
@@ -81,9 +82,14 @@ int start_listen(int port) {
         logger_err("ctrl pipe failed");
         return 1;
     }
-
+    if (pipe(exit_fd) == -1) {
+        logger_err("exit pipe failed");
+        return 1;
+    }
     set_fd_nonblocking(pasv_send_ctrl_pipe_fd[0]);
     set_fd_nonblocking(pasv_send_ctrl_pipe_fd[1]);
+    set_fd_nonblocking(exit_fd[0]);
+    set_fd_nonblocking(exit_fd[1]);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         fds[i].fd = -1;
@@ -94,6 +100,9 @@ int start_listen(int port) {
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
     fds[fd_most_tail].fd = pasv_send_ctrl_pipe_fd[0];
+    fds[fd_most_tail].events = POLLIN;
+    fd_most_tail++;
+    fds[fd_most_tail].fd = exit_fd[0];
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
 
@@ -144,6 +153,10 @@ int start_listen(int port) {
                     if (client->sock_fd) {
                         fds[client->nfds].events |= POLLOUT;
                     }
+                } else if (fds[i].fd == exit_fd[0]) {
+                    /* 关闭连接 */
+                    read(pasv_send_ctrl_pipe_fd[0], &client, sizeof(&client));
+                    close_client_connection(client);
                 } else {
                     /* 处理 client 传输过来的命令 */
                     client = protocol_client_by_fd(fds[i].fd);

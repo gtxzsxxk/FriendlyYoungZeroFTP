@@ -13,6 +13,7 @@
 
 enum net_state_machine {
     IDLE,
+    NEW_CLIENT,
     NEED_SEND,
     NEED_RECV,
 };
