@@ -320,9 +320,9 @@ static void *pasv_thread(void *args) {
                     read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
                     if (client->pasv_client_fd) {
                         if (client->state_machine == NEED_SEND) {
-                            fds[client->pasv_client_fd].events |= POLLOUT;
+                            fds[client->client_nfds].events |= POLLOUT;
                         } else if (client->state_machine == NEED_RECV) {
-                            fds[client->pasv_client_fd].events = POLLIN;
+                            fds[client->client_nfds].events = POLLIN;
                         }
                     }
                 } else {
