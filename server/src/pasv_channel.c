@@ -115,7 +115,7 @@ int pasv_client_new(int *port) {
         sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sockfd < 0) {
             logger_err("%s", "Failed to create socket for pasv.");
-            pthread_mutex_unlock(&client->lock);
+            pthread_mutex_destroy(&client->lock);
             return -1;
         }
         set_fd_nonblocking(sockfd);
@@ -151,7 +151,7 @@ int pasv_client_new(int *port) {
     }
 
     logger_err("Failed to find available port for pasv xmit after %d tries", MAX_ATTEMPTS);
-    pthread_mutex_unlock(&client->lock);
+    pthread_mutex_destroy(&client->lock);
     return -1;
 }
 
@@ -180,8 +180,8 @@ int pasv_send_data(int port, const char *data, size_t len,
     } else {
         client->ctrl_client = NULL;
     }
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     pthread_mutex_unlock(&client->lock);
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     return 0;
 }
 
@@ -212,8 +212,8 @@ int pasv_sendfile(int port, const char *path,
     } else {
         client->ctrl_client = NULL;
     }
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     pthread_mutex_unlock(&client->lock);
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     return 0;
 }
 
@@ -252,8 +252,8 @@ int pasv_recvfile(int port, const char *path,
     } else {
         client->ctrl_client = NULL;
     }
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     pthread_mutex_unlock(&client->lock);
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     return 0;
 }
 
