@@ -48,6 +48,7 @@ struct pasv_client_data {
     int pasv_client_fd;
     int server_nfds;
     int client_nfds;
+    struct pollfd poll_server_fd;
     const char *data_to_send;
     char file_to_send[256];
     int file_fd;
@@ -133,17 +134,13 @@ int pasv_client_new(int *port) {
             client->write_pipe_fd[0] = -1;
             client->write_pipe_fd[1] = -1;
             client->file_fd = -1;
-            struct pollfd fd = {
+            struct pollfd tmp_fd = {
                     .fd = client->pasv_server_fd,
                     .events = POLLIN,
             };
-            client->server_nfds = push_new_fd(fd);
-            if (client->server_nfds == -1) {
-                logger_err("Client numbers for pasv exceeded!");
-                pthread_mutex_unlock(&client->lock);
-                return 1;
-            }
-            pthread_mutex_unlock(&client->lock);
+            client->poll_server_fd = tmp_fd;
+            client->state_machine = NEW_CLIENT;
+            write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
             return 0;
         } else {
             close(sockfd);
@@ -318,7 +315,15 @@ static void *pasv_thread(void *args) {
                 if (fds[i].fd == ctrl_send_data_pipe_fd[0]) {
                     /* 需要传输数据 */
                     read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
-                    if (client->pasv_client_fd) {
+                    if (client->state_machine == NEW_CLIENT) {
+                        client->server_nfds = push_new_fd(client->poll_server_fd);
+                        if (client->server_nfds == -1) {
+                            logger_err("Client numbers for pasv exceeded!");
+                            pthread_mutex_destroy(&client->lock);
+                            continue;
+                        }
+                        client->state_machine = IDLE;
+                    } else if (client->pasv_client_fd) {
                         if (client->state_machine == NEED_SEND) {
                             fds[client->client_nfds].events |= POLLOUT;
                         } else if (client->state_machine == NEED_RECV) {
