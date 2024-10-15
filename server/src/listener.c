@@ -15,7 +15,7 @@ struct sockaddr_in local_addr = {0};
 uint32_t load_ip_addr = 0;
 socklen_t local_len = sizeof(local_addr);
 
-int pasv_send_ctrl_pipe_fd[2];
+int data_send_ctrl_pipe_fd[2];
 int exit_fd[2];
 
 static struct pollfd fds[MAX_CLIENTS];
@@ -78,7 +78,7 @@ int start_listen(int port) {
     listen(server_fd, 5);
 
     /* 初始化管道 */
-    if (pipe(pasv_send_ctrl_pipe_fd) == -1) {
+    if (pipe(data_send_ctrl_pipe_fd) == -1) {
         logger_err("ctrl pipe failed");
         return 1;
     }
@@ -86,8 +86,8 @@ int start_listen(int port) {
         logger_err("exit pipe failed");
         return 1;
     }
-    set_fd_nonblocking(pasv_send_ctrl_pipe_fd[0]);
-    set_fd_nonblocking(pasv_send_ctrl_pipe_fd[1]);
+    set_fd_nonblocking(data_send_ctrl_pipe_fd[0]);
+    set_fd_nonblocking(data_send_ctrl_pipe_fd[1]);
     set_fd_nonblocking(exit_fd[0]);
     set_fd_nonblocking(exit_fd[1]);
 
@@ -99,7 +99,7 @@ int start_listen(int port) {
     fds[fd_most_tail].fd = server_fd;
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
-    fds[fd_most_tail].fd = pasv_send_ctrl_pipe_fd[0];
+    fds[fd_most_tail].fd = data_send_ctrl_pipe_fd[0];
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
     fds[fd_most_tail].fd = exit_fd[0];
@@ -148,8 +148,8 @@ int start_listen(int port) {
                         logger_info("new client connected %s:%d", inet_ntoa(client_addr.sin_addr),
                                     ntohs(client_addr.sin_port));
                     }
-                } else if (fds[i].fd == pasv_send_ctrl_pipe_fd[0]) {
-                    read(pasv_send_ctrl_pipe_fd[0], &client, sizeof(&client));
+                } else if (fds[i].fd == data_send_ctrl_pipe_fd[0]) {
+                    read(data_send_ctrl_pipe_fd[0], &client, sizeof(&client));
                     if (client->sock_fd) {
                         fds[client->nfds].events |= POLLOUT;
                     }

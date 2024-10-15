@@ -410,7 +410,7 @@ static void *pasv_thread(void *args) {
                                 pthread_mutex_lock(&client->ctrl_client->net_lock);
                                 strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                                 client->ctrl_client->net_state = NEED_SEND;
-                                write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
                                       sizeof(&client->ctrl_client));
                             }
                             close_connection(client);
@@ -511,7 +511,7 @@ static void *pasv_thread(void *args) {
                             pthread_mutex_lock(&client->ctrl_client->net_lock);
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
-                            write(pasv_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
+                            write(data_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
                         }
                         /* 传输结束后，关闭连接 */
                         close_connection(client);
