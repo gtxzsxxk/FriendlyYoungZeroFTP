@@ -32,12 +32,14 @@
 #include "listener.h"
 #include "filesystem.h"
 
+#if !defined(__APPLE__)
 #ifndef SPLICE_F_MOVE
 #define SPLICE_F_MOVE   0
 
 ssize_t splice(int fd_in, loff_t *off_in, int fd_out,
                loff_t *off_out, size_t len, unsigned int flags);
 
+#endif
 #endif
 
 struct pasv_client_data {
@@ -54,6 +56,9 @@ struct pasv_client_data {
     pthread_mutex_t lock;
     int write_pipe_fd[2];
     char ctrl_send_buffer[512];
+#if defined(__APPLE__)
+    char recv_buffer[4096];
+#endif
     struct client_data *ctrl_client;
 
     enum net_state_machine state_machine;
@@ -364,6 +369,7 @@ static void *pasv_thread(void *args) {
                             i = -1;
                             continue;
                         }
+#if !defined(__APPLE__)
                         flag = 1;
                         if (setsockopt(client->pasv_client_fd, IPPROTO_TCP, TCP_QUICKACK, (char *) &flag,
                                        sizeof(flag)) == -1) {
@@ -372,6 +378,7 @@ static void *pasv_thread(void *args) {
                             i = -1;
                             continue;
                         }
+#endif
                         flag = 1;
                         if (setsockopt(client->pasv_client_fd, SOL_SOCKET, SO_RCVLOWAT, (char *) &flag,
                                        sizeof(flag)) == -1) {
@@ -393,8 +400,12 @@ static void *pasv_thread(void *args) {
                         }
                     } else {
                         /* 用户正在传输来数据 */
+#if !defined(__APPLE__)
                         ssize_t rev_cnt = splice(fds[i].fd, NULL, client->write_pipe_fd[1], NULL, 4096,
                                                  SPLICE_F_MOVE);
+#else
+                        ssize_t rev_cnt = read(fds[i].fd, client->recv_buffer, 4096);
+#endif
                         if (rev_cnt == 0) {
                             /* 连接被关闭 */
                             logger_info("Pasv client with fd %d ended uploading", fds[i].fd);
@@ -417,8 +428,12 @@ static void *pasv_thread(void *args) {
                             continue;
                         }
                         if (client->state_machine == NEED_RECV) {
+#if !defined(__APPLE__)
                             ssize_t wr_cnt = splice(client->write_pipe_fd[0], NULL, client->file_fd, NULL, rev_cnt,
                                                     SPLICE_F_MOVE);
+#else
+                            ssize_t wr_cnt = write(client->file_fd, client->recv_buffer, rev_cnt);
+#endif
                             if (wr_cnt < 0) {
                                 logger_err("Pasv client with fd %d cannot use splice to write file", fds[i].fd);
                                 close_connection(client);
