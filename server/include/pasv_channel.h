@@ -6,6 +6,7 @@
 #define SERVER_PASV_CHANNEL_H
 
 #include <string.h>
+#include <unistd.h>
 #include "protocol.h"
 
 #define MAX_ATTEMPTS     100
@@ -15,6 +16,8 @@
 #define MAX_SEND_CHUNK 65536
 
 int pasv_client_new(int *port);
+
+int pasv_send_set_rest(int port, off_t offset);
 
 int pasv_send_data(int port, const char *data, size_t len,
                    struct client_data *ctrl_client,

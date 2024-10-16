@@ -11,6 +11,8 @@
 
 int port_client_new(struct sockaddr_in target_addr);
 
+int port_send_set_rest(struct client_data *ctrl_client, off_t offset);
+
 int port_send_data(struct client_data *ctrl_client,
                    const char *data,
                    size_t len,

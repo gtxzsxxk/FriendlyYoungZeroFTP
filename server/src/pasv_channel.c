@@ -23,10 +23,10 @@
 #define _GNU_SOURCE
 
 #include <fcntl.h>
-#include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <poll.h>
+#include <signal.h>
 #include <time.h>
 #include "logger.h"
 #include "listener.h"
@@ -131,6 +131,7 @@ int pasv_client_new(int *port) {
             client->pasv_server_fd = sockfd;
             client->data_to_send = NULL;
             client->send_len = 0;
+            client->send_offset = 0;
             client->write_pipe_fd[0] = -1;
             client->write_pipe_fd[1] = -1;
             client->file_fd = -1;
@@ -155,6 +156,24 @@ int pasv_client_new(int *port) {
     return -1;
 }
 
+int pasv_send_set_rest(int port, off_t offset) {
+    struct pasv_client_data *client = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (pasv_clients[i].port == port) {
+            client = &pasv_clients[i];
+            break;
+        }
+    }
+    if (!client) {
+        logger_err("No such a client with port %d", port);
+        return -1;
+    }
+    pthread_mutex_lock(&client->lock);
+    client->send_offset = offset;
+    pthread_mutex_unlock(&client->lock);
+    return 0;
+}
+
 int pasv_send_data(int port, const char *data, size_t len,
                    struct client_data *ctrl_client,
                    const char *end_msg) {
@@ -170,7 +189,6 @@ int pasv_send_data(int port, const char *data, size_t len,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
@@ -203,7 +221,6 @@ int pasv_sendfile(int port, const char *path,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = NULL;
     strcpy(client->file_to_send, path);
     client->file_fd = -1;
@@ -238,7 +255,6 @@ int pasv_recvfile(int port, const char *path,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = NULL;
     client->file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (client->file_fd < 0) {
@@ -331,6 +347,9 @@ static void *pasv_thread(void *args) {
     fds[fd_most_tail].fd = ctrl_send_data_pipe_fd[0];
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
+
+    /* avoid */
+    signal(SIGPIPE, SIG_IGN);
 
     while (1) {
         int poll_cnt = poll(fds, fd_most_tail, -1);

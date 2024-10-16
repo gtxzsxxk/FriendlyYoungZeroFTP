@@ -242,6 +242,34 @@ FTP_FUNC_DEFINE(PORT) {
     return 1;
 }
 
+FTP_FUNC_DEFINE(REST) {
+    if (client->ftp_state == LOGGED_IN) {
+        if (argument) {
+            long offset;
+            char *endptr;
+            offset = strtol(argument, &endptr, 10);
+            if (*endptr != '\0') {
+                goto fail;
+            }
+
+            if (client->conn_type == PASV) {
+                pasv_send_set_rest(client->pasv_port, offset);
+                protocol_client_resp_by_state_machine(client, 350, "PASV REST successful.");
+            } else if (client->conn_type == PORT) {
+                port_send_set_rest(client, offset);
+                protocol_client_resp_by_state_machine(client, 350, "PORT REST successful.");
+            } else {
+                client->conn_type = NOT_SPECIFIED;
+                protocol_client_resp_by_state_machine(client, 434, "You must specify PASV or PORT first.");
+            }
+            return 0;
+        }
+    }
+
+    fail:
+    return 1;
+}
+
 FTP_FUNC_DEFINE(LIST) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {

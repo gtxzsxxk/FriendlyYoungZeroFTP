@@ -144,6 +144,25 @@ int port_client_new(struct sockaddr_in target_addr) {
     return -1;
 }
 
+int port_send_set_rest(struct client_data *ctrl_client, off_t offset) {
+    struct port_client_data *client = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == ctrl_client->port_target_addr.sin_addr.s_addr &&
+            port_clients[i].target_addr.sin_port == ctrl_client->port_target_addr.sin_port) {
+            client = &port_clients[i];
+            break;
+        }
+    }
+    if (!client) {
+        logger_err("No such a PORT client");
+        return -1;
+    }
+    pthread_mutex_lock(&client->lock);
+    client->send_offset = offset;
+    pthread_mutex_unlock(&client->lock);
+    return 0;
+}
+
 int port_send_data(struct client_data *ctrl_client,
                    const char *data,
                    size_t len,
