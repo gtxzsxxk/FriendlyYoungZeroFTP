@@ -8,7 +8,6 @@
 #include <string.h>
 #include <poll.h>
 #include "logger.h"
-#include "protocol.h"
 #include "pasv_channel.h"
 #include "port_channel.h"
 
@@ -47,12 +46,25 @@ static void close_fd_connection(int index) {
     fds[index].revents = 0;
 }
 
-static void close_client_connection(struct client_data *client) {
+void ctrl_client_close_connection(struct client_data *client) {
     logger_info("client disconnected %s:%d",
                 inet_ntoa(client->addr.sin_addr),
                 ntohs(client->addr.sin_port));
+    if (client->conn_type == PASV) {
+        pasv_close_connection(client->pasv_port);
+    } else if (client->conn_type == PORT) {
+        port_close_connection(client);
+    }
     close_fd_connection(client->nfds);
     protocol_client_free(client->sock_fd);
+}
+
+static void ctrl_close_client(struct client_data *client) {
+    if (client->ftp_state == LOGGED_IN) {
+        protocol_client_kill_by_user(client->username);
+    } else {
+        ctrl_client_close_connection(client);
+    }
 }
 
 int start_listen(int port) {
@@ -159,7 +171,7 @@ int start_listen(int port) {
                 } else if (fds[i].fd == exit_fd[0]) {
                     /* 关闭连接 */
                     read(exit_fd[0], &client, sizeof(&client));
-                    if(client->net_state == NEED_QUIT) {
+                    if (client->net_state == NEED_QUIT) {
                         fds[client->nfds].events |= POLLOUT;
                     }
                 } else {
@@ -192,7 +204,7 @@ int start_listen(int port) {
                             protocol_on_recv(client->sock_fd);
                         }
                     } else {
-                        close_client_connection(client);
+                        ctrl_close_client(client);
                         i = -1;
                         continue;
                     }
@@ -223,8 +235,8 @@ int start_listen(int port) {
                 /* 恢复 POLLIN */
                 fds[i].events = POLLIN;
 
-                if(client->net_state == NEED_QUIT) {
-                    close_client_connection(client);
+                if (client->net_state == NEED_QUIT) {
+                    ctrl_close_client(client);
                     continue;
                 }
                 client->net_state = IDLE;

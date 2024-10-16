@@ -1,6 +1,8 @@
 #ifndef SERVER_H_LISTENER
 #define SERVER_H_LISTENER
+
 #include <netinet/in.h>
+#include "protocol.h"
 
 extern struct sockaddr_in local_addr;
 extern uint32_t load_ip_addr;
@@ -10,5 +12,7 @@ extern int data_send_ctrl_pipe_fd[];
 extern int exit_fd[];
 
 int start_listen(int port);
+
+void ctrl_client_close_connection(struct client_data *client);
 
 #endif
