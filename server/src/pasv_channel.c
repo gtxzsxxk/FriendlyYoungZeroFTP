@@ -69,7 +69,7 @@ struct pasv_client_data pasv_clients[MAX_CLIENTS];
 static struct pollfd fds[MAX_CLIENTS];
 static int fd_most_tail = 0;
 
-int ctrl_send_data_pipe_fd[2];
+static int ctrl_send_data_pipe_fd[2];
 
 static pthread_t pasv_thread_ptr;
 

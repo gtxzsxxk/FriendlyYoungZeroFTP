@@ -67,7 +67,7 @@ struct port_client_data port_clients[MAX_CLIENTS];
 static struct pollfd fds[MAX_CLIENTS];
 static int fd_most_tail = 0;
 
-int ctrl_send_data_pipe_fd[2];
+static int ctrl_send_data_pipe_fd[2];
 
 static pthread_t port_thread_ptr;
 
