@@ -4,11 +4,15 @@
 #include "listener.h"
 #include "logger.h"
 #include "protocol.h"
+#include "filesystem.h"
 
-void usage(void) {
+void usage(int argc, char **argv) {
     printf("%s", "server error: bad arguments\n\n");
-    printf("%s", "Usage:\n");
-    printf("%s", "server -port 11341 -root /root/ftp/\n");
+    for (int i = 0; i < argc; i++) {
+        printf("Unexpected parameter %d: %s\r\n", i, argv[i]);
+    }
+    printf("%s", "\r\nUsage:\r\n");
+    printf("%s", "server -port 11341 -root /root/ftp/\r\n");
 }
 
 int main(int argc, char **argv) {
@@ -26,7 +30,7 @@ int main(int argc, char **argv) {
                 }
                 i++;
             } else {
-                usage();
+                usage(argc, argv);
                 return 1;
             }
         } else if (!strcmp(argv[i], "-root")) {
@@ -35,17 +39,31 @@ int main(int argc, char **argv) {
                 strcpy(root_path, argv[i + 1]);
                 i++;
             } else {
-                usage();
+                usage(argc, argv);
                 return 1;
             }
         } else {
-            usage();
+            usage(argc, argv);
             return 1;
         }
     }
-    if (!assigned_port || !assigned_root) {
-        usage();
+    if (!assigned_port && !assigned_root) {
+        port = 21;
+        strcpy(root_path, "/tmp");
+    } else if (!assigned_port || !assigned_root) {
+        usage(argc, argv);
         return 1;
+    }
+
+    /* 获得绝对路径 */
+    if (root_path[0] != '/') {
+        char pwd[256];
+        if (!getcwd(pwd, 256)) {
+            logger_err("root filesystem cwd failed %s", root_path);
+        }
+        const char *abs_path = fs_path_join(pwd, root_path);
+        strcpy(root_path, abs_path);
+        free((void *) abs_path);
     }
 
     logger_init();
