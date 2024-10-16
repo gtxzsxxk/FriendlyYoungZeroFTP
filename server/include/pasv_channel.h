@@ -28,6 +28,8 @@ int pasv_recvfile(int port, const char *path,
                   struct client_data *ctrl_client,
                   const char *end_msg);
 
+int pasv_close_connection(int port);
+
 void pasv_start(void);
 
 #endif //SERVER_PASV_CHANNEL_H

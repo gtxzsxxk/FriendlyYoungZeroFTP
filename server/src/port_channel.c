@@ -241,6 +241,26 @@ int port_recvfile(struct client_data *ctrl_client,
     return 0;
 }
 
+int port_close_connection(struct client_data *ctrl_client) {
+    struct port_client_data *client = NULL;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == ctrl_client->port_target_addr.sin_addr.s_addr &&
+            port_clients[i].target_addr.sin_port == ctrl_client->port_target_addr.sin_port) {
+            client = &port_clients[i];
+            break;
+        }
+    }
+    if (!client) {
+        logger_err("No such a PORT client");
+        return -1;
+    }
+    pthread_mutex_lock(&client->lock);
+    client->state_machine = NEED_QUIT;
+    pthread_mutex_unlock(&client->lock);
+    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    return 0;
+}
+
 static void close_connection(struct port_client_data *client) {
     close(client->sock_fd);
     fds[client->sock_nfds].fd = -1;
@@ -296,7 +316,10 @@ static void *port_thread(void *args) {
             if (fds[i].revents & POLLIN) {
                 if (fds[i].fd == ctrl_send_data_pipe_fd[0]) {
                     /* 需要传输数据 */
-                    read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
+                    int ret = read(ctrl_send_data_pipe_fd[0], &client, sizeof(&client));
+                    if (ret <= 0) {
+                        continue;
+                    }
                     if (client->state_machine == NEW_CLIENT) {
                         client->sock_nfds = push_new_fd(client->poll_client_fd);
                         if (client->sock_nfds == -1) {
@@ -310,6 +333,10 @@ static void *port_thread(void *args) {
                             fds[client->sock_nfds].events |= POLLOUT;
                         } else if (client->state_machine == NEED_RECV) {
                             fds[client->sock_nfds].events = POLLIN;
+                        } else if (client->state_machine == NEED_QUIT) {
+                            close_connection(client);
+                            i = -1;
+                            continue;
                         }
                     }
                 } else {
@@ -337,6 +364,8 @@ static void *port_thread(void *args) {
                         /* Callback */
                         if (client->ctrl_client) {
                             pthread_mutex_lock(&client->ctrl_client->net_lock);
+                            /* 发送完毕 */
+                            client->ctrl_client->conn_type = NOT_SPECIFIED;
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
                             write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
@@ -438,6 +467,8 @@ static void *port_thread(void *args) {
                         /* Callback */
                         if (client->ctrl_client) {
                             pthread_mutex_lock(&client->ctrl_client->net_lock);
+                            /* 发送完毕 */
+                            client->ctrl_client->conn_type = NOT_SPECIFIED;
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
                             write(data_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
@@ -449,8 +480,6 @@ static void *port_thread(void *args) {
                     } else {
                         fds[i].events = POLLOUT;
                     }
-                } else {
-                    logger_err("The port client with fd %d should not send by get POLLOUT", fds[i].fd);
                 }
                 pthread_mutex_unlock(&client->lock);
             }

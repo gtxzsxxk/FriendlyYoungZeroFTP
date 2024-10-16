@@ -24,6 +24,8 @@ int port_recvfile(struct client_data *ctrl_client,
                   const char *path,
                   const char *end_msg);
 
+int port_close_connection(struct client_data *ctrl_client);
+
 void port_start(void);
 
 #endif //SERVER_PORT_CHANNEL_H
