@@ -130,7 +130,10 @@ int port_client_new(struct sockaddr_in target_addr) {
         };
         client->poll_client_fd = tmp_fd;
         client->state_machine = NEW_CLIENT;
-        write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+        int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+        if (ret <= 0) {
+            return 1;
+        }
         return 0;
     } else {
         close(sockfd);
@@ -165,7 +168,10 @@ int port_send_data(struct client_data *ctrl_client,
     strcpy(client->ctrl_send_buffer, end_msg);
     client->ctrl_client = ctrl_client;
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -198,7 +204,10 @@ int port_sendfile(struct client_data *ctrl_client,
         client->ctrl_client = NULL;
     }
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -237,7 +246,10 @@ int port_recvfile(struct client_data *ctrl_client,
         client->ctrl_client = NULL;
     }
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -257,7 +269,10 @@ int port_close_connection(struct client_data *ctrl_client) {
     pthread_mutex_lock(&client->lock);
     client->state_machine = NEED_QUIT;
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -368,8 +383,11 @@ static void *port_thread(void *args) {
                             client->ctrl_client->conn_type = NOT_SPECIFIED;
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
-                            write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
-                                  sizeof(&client->ctrl_client));
+                            int ret = write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                            sizeof(&client->ctrl_client));
+                            if (ret <= 0) {
+                                continue;
+                            }
                         }
                         close_connection(client);
                         i = -1;
@@ -471,7 +489,11 @@ static void *port_thread(void *args) {
                             client->ctrl_client->conn_type = NOT_SPECIFIED;
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
-                            write(data_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
+                            int ret = write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                            sizeof(&client->ctrl_client));
+                            if (ret <= 0) {
+                                continue;
+                            }
                         }
                         /* 传输结束后，关闭连接 */
                         close_connection(client);

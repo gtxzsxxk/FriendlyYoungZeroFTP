@@ -140,7 +140,10 @@ int pasv_client_new(int *port) {
             };
             client->poll_server_fd = tmp_fd;
             client->state_machine = NEW_CLIENT;
-            write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+            int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+            if (ret <= 0) {
+                return 1;
+            }
             return 0;
         } else {
             close(sockfd);
@@ -178,7 +181,10 @@ int pasv_send_data(int port, const char *data, size_t len,
         client->ctrl_client = NULL;
     }
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -210,7 +216,10 @@ int pasv_sendfile(int port, const char *path,
         client->ctrl_client = NULL;
     }
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -248,7 +257,10 @@ int pasv_recvfile(int port, const char *path,
         client->ctrl_client = NULL;
     }
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -267,7 +279,10 @@ int pasv_close_connection(int port) {
     pthread_mutex_lock(&client->lock);
     client->state_machine = NEED_QUIT;
     pthread_mutex_unlock(&client->lock);
-    write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    int ret = write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -438,8 +453,11 @@ static void *pasv_thread(void *args) {
                                 client->ctrl_client->conn_type = NOT_SPECIFIED;
                                 strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                                 client->ctrl_client->net_state = NEED_SEND;
-                                write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
-                                      sizeof(&client->ctrl_client));
+                                int ret = write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                                sizeof(&client->ctrl_client));
+                                if (ret <= 0) {
+                                    continue;
+                                }
                             }
                             close_connection(client);
                             i = -1;
@@ -541,7 +559,11 @@ static void *pasv_thread(void *args) {
                             client->ctrl_client->conn_type = NOT_SPECIFIED;
                             strcpy(client->ctrl_client->cmd_send, client->ctrl_send_buffer);
                             client->ctrl_client->net_state = NEED_SEND;
-                            write(data_send_ctrl_pipe_fd[1], &client->ctrl_client, sizeof(&client->ctrl_client));
+                            int ret = write(data_send_ctrl_pipe_fd[1], &client->ctrl_client,
+                                            sizeof(&client->ctrl_client));
+                            if (ret <= 0) {
+                                continue;
+                            }
                         }
                         /* 传输结束后，关闭连接 */
                         close_connection(client);

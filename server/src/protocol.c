@@ -118,5 +118,8 @@ void protocol_client_resp_by_state_machine(struct client_data *client, int code,
 void protocol_client_quit(struct client_data *client) {
     /* 使用管道，进入POLL后，关闭client的连接 */
     client->net_state = NEED_QUIT;
-    write(exit_fd[1], &client, sizeof(&client));
+    int ret = write(exit_fd[1], &client, sizeof(&client));
+    if (ret <= 0) {
+        logger_err("Fail to send quit internal command");
+    }
 }

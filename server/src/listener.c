@@ -152,14 +152,20 @@ int start_listen(int port) {
                                     ntohs(client_addr.sin_port));
                     }
                 } else if (fds[i].fd == data_send_ctrl_pipe_fd[0]) {
-                    read(data_send_ctrl_pipe_fd[0], &client, sizeof(&client));
+                    int ret = read(data_send_ctrl_pipe_fd[0], &client, sizeof(&client));
+                    if (ret <= 0) {
+                        continue;
+                    }
                     if (client->sock_fd) {
                         fds[client->nfds].events |= POLLOUT;
                     }
                 } else if (fds[i].fd == exit_fd[0]) {
                     /* 关闭连接 */
-                    read(exit_fd[0], &client, sizeof(&client));
-                    if(client->net_state == NEED_QUIT) {
+                    int ret = read(exit_fd[0], &client, sizeof(&client));
+                    if (ret <= 0) {
+                        continue;
+                    }
+                    if (client->net_state == NEED_QUIT) {
                         fds[client->nfds].events |= POLLOUT;
                     }
                 } else {
@@ -223,7 +229,7 @@ int start_listen(int port) {
                 /* 恢复 POLLIN */
                 fds[i].events = POLLIN;
 
-                if(client->net_state == NEED_QUIT) {
+                if (client->net_state == NEED_QUIT) {
                     close_client_connection(client);
                     continue;
                 }
