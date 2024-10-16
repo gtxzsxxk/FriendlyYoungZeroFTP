@@ -123,15 +123,15 @@ FTP_FUNC_DEFINE(TYPE) {
         if (argument) {
             if (!strcmp(argument, "A")) {
                 client->data_type = ASCII;
-                protocol_client_resp_by_state_machine(client, 200, "Type set to Ascii");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to Ascii.");
                 return 0;
             } else if (!strcmp(argument, "I")) {
                 client->data_type = BINARY;
-                protocol_client_resp_by_state_machine(client, 200, "Type set to I");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to I.");
                 return 0;
             } else if (!strcmp(argument, "L")) {
                 client->data_type = BINARY;
-                protocol_client_resp_by_state_machine(client, 200, "Type set to L");
+                protocol_client_resp_by_state_machine(client, 200, "Type set to L.");
                 return 0;
             }
         }
