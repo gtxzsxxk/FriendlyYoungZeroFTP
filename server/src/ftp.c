@@ -207,15 +207,16 @@ FTP_FUNC_DEFINE(PORT) {
                 goto fail;
             }
             uint32_t target_ip =
-                    (address_port[0] << 24) |
-                    (address_port[1] << 16) |
-                    (address_port[2] << 8) |
-                    address_port[3];
-            struct sockaddr_in target_addr;
-            target_addr.sin_port = htons(address_port[4] * 256 + address_port[5]);
-            target_addr.sin_addr.s_addr = htonl(target_ip);
+                    (digits[0] << 24) |
+                    (digits[1] << 16) |
+                    (digits[2] << 8) |
+                    digits[3];
 
             if (!port_client_new(target_addr)) {
+            client->port_target_addr.sin_family = AF_INET;
+            client->port_target_addr.sin_port = htons(digits[4] * 256 + digits[5]);
+            client->port_target_addr.sin_addr.s_addr = htonl(target_ip);
+
                 client->conn_type = PORT;
                 protocol_client_resp_by_state_machine(client, 200, "PORT command successful.");
             } else {
