@@ -2,7 +2,7 @@ ifeq ($(CC),)
 $(error No C compiler specified)
 endif
 
-CFLAGS		+=	-Wall -I include/
+CFLAGS		+=	-Wall -Werror -I include/
 
 ifeq ($(DEBUG),y)
 CFLAGS		+=	-g
