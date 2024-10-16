@@ -11,16 +11,17 @@
 
 int port_client_new(struct sockaddr_in target_addr);
 
-int port_send_data(int port, const char *data, size_t len,
-                   struct client_data *ctrl_client,
+int port_send_data(struct client_data *ctrl_client,
+                   const char *data,
+                   size_t len,
                    const char *end_msg);
 
-int port_sendfile(int port, const char *path,
-                  struct client_data *ctrl_client,
+int port_sendfile(struct client_data *ctrl_client,
+                  const char *path,
                   const char *end_msg);
 
-int port_recvfile(int port, const char *path,
-                  struct client_data *ctrl_client,
+int port_recvfile(struct client_data *ctrl_client,
+                  const char *path,
                   const char *end_msg);
 
 void port_start(void);

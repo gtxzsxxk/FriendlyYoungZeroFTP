@@ -212,11 +212,11 @@ FTP_FUNC_DEFINE(PORT) {
                     (digits[2] << 8) |
                     digits[3];
 
-            if (!port_client_new(target_addr)) {
             client->port_target_addr.sin_family = AF_INET;
             client->port_target_addr.sin_port = htons(digits[4] * 256 + digits[5]);
             client->port_target_addr.sin_addr.s_addr = htonl(target_ip);
 
+            if (!port_client_new(client->port_target_addr)) {
                 client->conn_type = PORT;
                 protocol_client_resp_by_state_machine(client, 200, "PORT command successful.");
             } else {
@@ -236,7 +236,7 @@ FTP_FUNC_DEFINE(LIST) {
         if (!argument) {
             if (client->conn_type == NOT_SPECIFIED) {
                 protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
-            } else if (client->conn_type == PASV) {
+            } else {
                 if (!fs_directory_allows(service_root, client->cwd)) {
                     protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
                     return 0;
@@ -291,7 +291,11 @@ FTP_FUNC_DEFINE(LIST) {
                     protocol_client_resp_by_state_machine(client, 150, "Here comes the directory listing.");
                     char tmp[64];
                     sprintf(tmp, "%d %s\r\n", 226, "Directory send OK.");
-                    pasv_send_data(client->pasv_port, formatted, fmt_len, client, tmp);
+                    if (client->conn_type == PASV) {
+                        pasv_send_data(client->pasv_port, formatted, fmt_len, client, tmp);
+                    } else {
+                        port_send_data(client, formatted, fmt_len, tmp);
+                    }
                 }
             }
             return 0;
@@ -397,7 +401,7 @@ FTP_FUNC_DEFINE(RETR) {
     if (client->ftp_state == LOGGED_IN) {
         if (client->conn_type == NOT_SPECIFIED) {
             protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
-        } else if (client->conn_type == PASV) {
+        } else {
             if (argument) {
                 /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
                  * 参数应该从full_instruction中获取
@@ -427,7 +431,11 @@ FTP_FUNC_DEFINE(RETR) {
                                 fs_get_file_size(fullpath));
                         protocol_client_resp_by_state_machine(client, 150, resp);
                         sprintf(resp, "%d %s\r\n", 226, "Transfer complete.");
-                        pasv_sendfile(client->pasv_port, fullpath, client, resp);
+                        if (client->conn_type == PASV) {
+                            pasv_sendfile(client->pasv_port, fullpath, client, resp);
+                        } else {
+                            port_sendfile(client, fullpath, resp);
+                        }
                         free(resp);
                     } else {
                         protocol_client_resp_by_state_machine(client, 550, "No such file or directory.");
@@ -447,7 +455,7 @@ FTP_FUNC_DEFINE(STOR) {
     if (client->ftp_state == LOGGED_IN) {
         if (client->conn_type == NOT_SPECIFIED) {
             protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
-        } else if (client->conn_type == PASV) {
+        } else {
             if (argument) {
                 /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
                  * 参数应该从full_instruction中获取
@@ -484,7 +492,11 @@ FTP_FUNC_DEFINE(STOR) {
                     const char *binary = "BINARY";
                     char *resp = malloc(512);
                     sprintf(resp, "%d %s\r\n", 226, "Transfer complete.");
-                    pasv_recvfile(client->pasv_port, fullpath, client, resp);
+                    if (client->conn_type == PASV) {
+                        pasv_recvfile(client->pasv_port, fullpath, client, resp);
+                    } else {
+                        port_recvfile(client, fullpath, resp);
+                    }
                     sprintf(resp, "Opening %s mode data connection for %s.",
                             client->data_type == BINARY ? binary : ascii,
                             fs_get_filename(fullpath));

@@ -61,6 +61,7 @@ struct client_data {
     enum ftp_conn_type conn_type;
 
     int pasv_port;
+    struct sockaddr_in port_target_addr;
 };
 
 #define HANDLE_COMMAND(cmd)     else if (!strcmp(command, #cmd)) { \

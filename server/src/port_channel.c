@@ -4,6 +4,7 @@
 
 #include "port_channel.h"
 #include <sys/socket.h>
+#include <sys/errno.h>
 
 #if __APPLE__
 
@@ -43,7 +44,7 @@ ssize_t splice(int fd_in, loff_t *off_in, int fd_out,
 #endif
 
 struct port_client_data {
-    int port;
+    struct sockaddr_in target_addr;
     int sock_fd;
     int sock_nfds;
     struct pollfd poll_client_fd;
@@ -95,7 +96,7 @@ int port_client_new(struct sockaddr_in target_addr) {
     struct port_client_data *client = NULL;
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (port_clients[i].port == 0) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == 0) {
             client = &port_clients[i];
             break;
         }
@@ -114,9 +115,9 @@ int port_client_new(struct sockaddr_in target_addr) {
         return -1;
     }
     set_fd_nonblocking(sockfd);
-    if (connect(sockfd, (struct sockaddr *) &target_addr, sizeof(target_addr)) == 0) {
-        listen(sockfd, 2);
-        client->port = ntohs(target_addr.sin_port);
+    int conn_ret = connect(sockfd, (struct sockaddr *) &target_addr, sizeof(target_addr));
+    if (conn_ret < 0 && errno == EINPROGRESS) {
+        client->target_addr = target_addr;
         client->sock_fd = sockfd;
         client->data_to_send = NULL;
         client->send_len = 0;
@@ -140,18 +141,20 @@ int port_client_new(struct sockaddr_in target_addr) {
     return -1;
 }
 
-int port_send_data(int port, const char *data, size_t len,
-                   struct client_data *ctrl_client,
+int port_send_data(struct client_data *ctrl_client,
+                   const char *data,
+                   size_t len,
                    const char *end_msg) {
     struct port_client_data *client = NULL;
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (port_clients[i].port == port) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == ctrl_client->port_target_addr.sin_addr.s_addr &&
+            port_clients[i].target_addr.sin_port == ctrl_client->port_target_addr.sin_port) {
             client = &port_clients[i];
             break;
         }
     }
     if (!client) {
-        logger_err("No such a client with port %d", port);
+        logger_err("No such a PORT client");
         return -1;
     }
     pthread_mutex_lock(&client->lock);
@@ -159,29 +162,26 @@ int port_send_data(int port, const char *data, size_t len,
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
-    if (ctrl_client) {
-        strcpy(client->ctrl_send_buffer, end_msg);
-        client->ctrl_client = ctrl_client;
-    } else {
-        client->ctrl_client = NULL;
-    }
+    strcpy(client->ctrl_send_buffer, end_msg);
+    client->ctrl_client = ctrl_client;
     pthread_mutex_unlock(&client->lock);
     write(ctrl_send_data_pipe_fd[1], &client, sizeof(&client));
     return 0;
 }
 
-int port_sendfile(int port, const char *path,
-                  struct client_data *ctrl_client,
+int port_sendfile(struct client_data *ctrl_client,
+                  const char *path,
                   const char *end_msg) {
     struct port_client_data *client = NULL;
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (port_clients[i].port == port) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == ctrl_client->port_target_addr.sin_addr.s_addr &&
+            port_clients[i].target_addr.sin_port == ctrl_client->port_target_addr.sin_port) {
             client = &port_clients[i];
             break;
         }
     }
     if (!client) {
-        logger_err("No such a client with port %d", port);
+        logger_err("No such a PORT client");
         return -1;
     }
     pthread_mutex_lock(&client->lock);
@@ -202,18 +202,19 @@ int port_sendfile(int port, const char *path,
     return 0;
 }
 
-int port_recvfile(int port, const char *path,
-                  struct client_data *ctrl_client,
+int port_recvfile(struct client_data *ctrl_client,
+                  const char *path,
                   const char *end_msg) {
     struct port_client_data *client = NULL;
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (port_clients[i].port == port) {
+        if (port_clients[i].target_addr.sin_addr.s_addr == ctrl_client->port_target_addr.sin_addr.s_addr &&
+            port_clients[i].target_addr.sin_port == ctrl_client->port_target_addr.sin_port) {
             client = &port_clients[i];
             break;
         }
     }
     if (!client) {
-        logger_err("No such a client with port %d", port);
+        logger_err("No such a PORT client");
         return -1;
     }
     pthread_mutex_lock(&client->lock);
@@ -264,8 +265,6 @@ static void close_connection(struct port_client_data *client) {
 
 static void *port_thread(void *args) {
     struct port_client_data *client;
-    struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         fds[i].fd = -1;
