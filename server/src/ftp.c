@@ -15,10 +15,16 @@
 FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
         strcpy(client->username, argument);
-        if (!strtok(NULL, " ")) {
-            client->ftp_state = NEED_PASSWORD;
-            protocol_client_resp_by_state_machine(client, 331, "Password is required");
+        if(strcmp(client->username, "anonymous") != 0) {
+            client->ftp_state = NEED_USERNAME;
+            protocol_client_resp_by_state_machine(client, 430, "Only support anonymous user.");
             return 0;
+        } else {
+            if (!strtok(NULL, " ")) {
+                client->ftp_state = NEED_PASSWORD;
+                protocol_client_resp_by_state_machine(client, 331, "Password is required.");
+                return 0;
+            }
         }
     }
     return 1;
@@ -415,6 +421,11 @@ FTP_FUNC_DEFINE(RETR) {
                 client->full_instruction[5] = tmp;
                 argument = &client->full_instruction[5];
                 const char *fullpath = NULL;
+                if(strstr(argument, "../") != NULL) {
+                    /* 含有 ../，禁止执行 */
+                    protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
+                    return 1;
+                }
                 if (argument[0] == '/') {
                     fullpath = fs_path_join(service_root, argument);
                 } else {
@@ -469,6 +480,11 @@ FTP_FUNC_DEFINE(STOR) {
                 client->full_instruction[5] = tmp;
                 argument = &client->full_instruction[5];
                 const char *fullpath = NULL;
+                if(strstr(argument, "../") != NULL) {
+                    /* 含有 ../，禁止执行 */
+                    protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
+                    return 1;
+                }
                 if (argument[0] == '/') {
                     fullpath = fs_path_join(service_root, argument);
                 } else {
