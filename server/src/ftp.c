@@ -15,7 +15,7 @@
 FTP_FUNC_DEFINE(USER) {
     if (client->ftp_state == NEED_USERNAME) {
         strcpy(client->username, argument);
-        if(strcmp(client->username, "anonymous") != 0) {
+        if (strcmp(client->username, "anonymous") != 0) {
             client->ftp_state = NEED_USERNAME;
             protocol_client_resp_by_state_machine(client, 430, "Only support anonymous user.");
             return 0;
@@ -161,6 +161,11 @@ FTP_FUNC_DEFINE(QUIT) {
     if (client->ftp_state == LOGGED_IN) {
         if (!argument) {
             protocol_client_resp_by_state_machine(client, 221, "Goodbye");
+            if (client->conn_type == PASV) {
+                pasv_close_connection(client->pasv_port);
+            } else if (client->conn_type == PORT) {
+                port_close_connection(client);
+            }
             protocol_client_quit(client);
             return 0;
         }
