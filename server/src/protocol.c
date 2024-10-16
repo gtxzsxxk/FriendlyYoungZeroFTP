@@ -120,13 +120,3 @@ void protocol_client_quit(struct client_data *client) {
     client->net_state = NEED_QUIT;
     write(exit_fd[1], &client, sizeof(&client));
 }
-
-void protocol_client_kill_by_user(const char *usr) {
-    char username[64];
-    strcpy(username, usr);
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i].sock_fd && !strcmp(clients[i].username, username)) {
-            ctrl_client_close_connection(&clients[i]);
-        }
-    }
-}

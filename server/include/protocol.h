@@ -86,6 +86,4 @@ void protocol_client_quit(struct client_data *client);
 
 void protocol_client_write_welcome_message(struct client_data *client, const char *data);
 
-void protocol_client_kill_by_user(const char *usr);
-
 #endif //SERVER_PROTOCOL_H
