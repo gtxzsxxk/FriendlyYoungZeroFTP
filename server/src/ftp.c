@@ -421,7 +421,7 @@ FTP_FUNC_DEFINE(RETR) {
                 client->full_instruction[5] = tmp;
                 argument = &client->full_instruction[5];
                 const char *fullpath = NULL;
-                if(strstr(argument, "../") != NULL) {
+                if (strstr(argument, "../") != NULL) {
                     /* 含有 ../，禁止执行 */
                     protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
                     return 1;
@@ -480,7 +480,7 @@ FTP_FUNC_DEFINE(STOR) {
                 client->full_instruction[5] = tmp;
                 argument = &client->full_instruction[5];
                 const char *fullpath = NULL;
-                if(strstr(argument, "../") != NULL) {
+                if (strstr(argument, "../") != NULL) {
                     /* 含有 ../，禁止执行 */
                     protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
                     return 1;
