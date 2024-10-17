@@ -120,6 +120,7 @@ int port_client_new(struct sockaddr_in target_addr) {
         client->target_addr = target_addr;
         client->sock_fd = sockfd;
         client->data_to_send = NULL;
+        client->send_offset = 0;
         client->send_len = 0;
         client->write_pipe_fd[0] = -1;
         client->write_pipe_fd[1] = -1;
@@ -180,7 +181,6 @@ int port_send_data(struct client_data *ctrl_client,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = data;
     client->send_len = len;
     client->state_machine = NEED_SEND;
@@ -210,7 +210,6 @@ int port_sendfile(struct client_data *ctrl_client,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = NULL;
     strcpy(client->file_to_send, path);
     client->file_fd = -1;
@@ -246,7 +245,6 @@ int port_recvfile(struct client_data *ctrl_client,
         return -1;
     }
     pthread_mutex_lock(&client->lock);
-    client->send_offset = 0;
     client->data_to_send = NULL;
     client->file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (client->file_fd < 0) {
@@ -255,6 +253,12 @@ int port_recvfile(struct client_data *ctrl_client,
     if (pipe(client->write_pipe_fd) < 0) {
         close(client->file_fd);
         return 1;
+    }
+    if (client->send_offset > 0) {
+        if (lseek(client->file_fd, client->send_offset, SEEK_SET) == -1) {
+            logger_err("Failed to set REST file offset.");
+            return 1;
+        }
     }
     client->send_len = 0;
     client->state_machine = NEED_RECV;
