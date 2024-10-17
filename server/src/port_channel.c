@@ -27,8 +27,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <poll.h>
-#include <time.h>
 #include "logger.h"
 #include "listener.h"
 #include "filesystem.h"
@@ -336,6 +336,8 @@ static void *port_thread(void *args) {
     fds[fd_most_tail].events = POLLIN;
     fd_most_tail++;
 
+    signal(SIGPIPE, SIG_IGN);
+
     while (1) {
         int poll_cnt = poll(fds, fd_most_tail, -1);
         if (poll_cnt == -1) {
@@ -364,9 +366,9 @@ static void *port_thread(void *args) {
                         client->state_machine = IDLE;
                     } else if (client->sock_fd) {
                         if (client->state_machine == NEED_SEND) {
-                            fds[client->sock_nfds].events |= POLLOUT;
+                            fds[client->sock_nfds].events |= POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                         } else if (client->state_machine == NEED_RECV) {
-                            fds[client->sock_nfds].events = POLLIN;
+                            fds[client->sock_nfds].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
                         } else if (client->state_machine == NEED_QUIT) {
                             close_connection(client);
                             i = -1;
@@ -519,10 +521,25 @@ static void *port_thread(void *args) {
                         i = -1;
                         continue;
                     } else {
-                        fds[i].events = POLLOUT;
+                        fds[i].events = POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                     }
                 }
                 pthread_mutex_unlock(&client->lock);
+            } else if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                for (int c = 0; c < MAX_CLIENTS; c++) {
+                    if (port_clients[c].sock_fd == fds[i].fd) {
+                        client = &port_clients[c];
+                        break;
+                    }
+                }
+                if (!client) {
+                    logger_err("Critical error on socket %d with poll error.", fds[i].fd);
+                    close(fds[i].fd);
+                    continue;
+                }
+                close_connection(client);
+                i = -1;
+                continue;
             }
         }
     }
