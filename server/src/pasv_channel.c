@@ -264,6 +264,12 @@ int pasv_recvfile(int port, const char *path,
         close(client->file_fd);
         return 1;
     }
+    if (client->send_offset > 0) {
+        if (lseek(client->file_fd, client->send_offset, SEEK_SET) == -1) {
+            logger_err("Failed to set REST file offset.");
+            return 1;
+        }
+    }
     client->send_len = 0;
     client->state_machine = NEED_RECV;
     if (ctrl_client) {
@@ -379,9 +385,9 @@ static void *pasv_thread(void *args) {
                         client->state_machine = IDLE;
                     } else if (client->pasv_client_fd) {
                         if (client->state_machine == NEED_SEND) {
-                            fds[client->client_nfds].events |= POLLOUT;
+                            fds[client->client_nfds].events |= POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                         } else if (client->state_machine == NEED_RECV) {
-                            fds[client->client_nfds].events = POLLIN;
+                            fds[client->client_nfds].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
                         } else if (client->state_machine == NEED_QUIT) {
                             close_connection(client);
                             i = -1;
@@ -445,14 +451,14 @@ static void *pasv_thread(void *args) {
                         }
                         struct pollfd fd = {
                                 .fd = client->pasv_client_fd,
-                                .events = POLLIN,
+                                .events = POLLIN | POLLERR | POLLHUP | POLLNVAL,
                         };
                         client->client_nfds = push_new_fd(fd);
 
                         if (client->state_machine == NEED_SEND) {
-                            fds[client->client_nfds].events |= POLLOUT;
+                            fds[client->client_nfds].events |= POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                         } else if (client->state_machine == NEED_RECV) {
-                            fds[client->client_nfds].events = POLLIN;
+                            fds[client->client_nfds].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
                         }
                     } else {
                         /* 用户正在传输来数据 */
@@ -589,10 +595,25 @@ static void *pasv_thread(void *args) {
                         i = -1;
                         continue;
                     } else {
-                        fds[i].events = POLLOUT;
+                        fds[i].events = POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                     }
                 }
                 pthread_mutex_unlock(&client->lock);
+            } else if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                for (int c = 0; c < MAX_CLIENTS; c++) {
+                    if (pasv_clients[c].pasv_client_fd == fds[i].fd) {
+                        client = &pasv_clients[c];
+                        break;
+                    }
+                }
+                if (!client) {
+                    logger_err("Critical error on socket %d with poll error.", fds[i].fd);
+                    close(fds[i].fd);
+                    continue;
+                }
+                close_connection(client);
+                i = -1;
+                continue;
             }
         }
     }
