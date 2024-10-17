@@ -561,3 +561,7 @@ FTP_FUNC_DEFINE(STOR) {
     }
     return 1;
 }
+
+FTP_FUNC_DEFINE(APPE) {
+    return FTP_STOR(client, argument);
+}

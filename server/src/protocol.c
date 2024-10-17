@@ -105,7 +105,8 @@ void protocol_on_recv(int fd) {
  HANDLE_COMMAND(MKD) \
  HANDLE_COMMAND(RMD) \
  HANDLE_COMMAND(RETR) \
- HANDLE_COMMAND(STOR)
+ HANDLE_COMMAND(STOR) \
+ HANDLE_COMMAND(APPE)
 
     protocol_client_resp_by_state_machine(client, 504, "State machine failed");
 }
