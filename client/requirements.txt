@@ -1,0 +1,4 @@
+pyftpdlib==2.0.0
+
+requests~=2.31.0
+PyQt6~=6.4.2
