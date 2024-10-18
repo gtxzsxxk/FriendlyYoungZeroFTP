@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
+#include <cstring>
 
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -16,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->button_exec_cmd->setEnabled(false);
     ui->button_upload->setEnabled(false);
+    ui->input_directory->setEnabled(false);
     ui->input_password->setEchoMode(QLineEdit::Password);
     ui->progressBar->hide();
     ui->table_file->setColumnCount(5);
@@ -23,8 +25,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->table_file->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->input_command->setFocusPolicy(Qt::NoFocus);
     ui->input_directory->setFocusPolicy(Qt::NoFocus);
-
-
 }
 
 MainWindow::~MainWindow() {
@@ -56,6 +56,7 @@ void MainWindow::fastConnectOrQuit() {
         if (uiConnectedState) {
             sockClient.close();
         }
+        ui->button_upload->setEnabled(false);
         ui->button_fastconnect->setText("快速连接");
     }
 }
@@ -98,3 +99,129 @@ void MainWindow::networkConnected() {
     msgbox.exec();
 }
 
+FTP_DEFINE_COMMAND(PASV) {
+    netCtrlTx("PASV\r\n");
+    auto resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了被动模式！");
+        msgbox.exec();
+        return;
+    }
+    auto infoStart = resp.find("(") + 1;
+    auto infoEnd = resp.find(")");
+    auto infoStr = resp.substr(infoStart, infoEnd - infoStart);
+    std::string hostAddr;
+    int port, cnt;
+    auto infoStrDup = strdup(infoStr.c_str());
+    char *part;
+    for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
+        if (cnt < 4) {
+            if (cnt < 3) {
+                hostAddr += std::string{part} + ".";
+            } else {
+                hostAddr += std::string{part};
+            }
+        } else {
+            if (cnt == 4) {
+                port = 256 * atoi(part);
+            } else if (cnt == 5) {
+                port += atoi(part);
+            }
+        }
+        cnt++;
+    }
+    free(infoStrDup);
+    if (cnt != 6) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的PASV返回！");
+        msgbox.exec();
+        return;
+    }
+
+    sockPasv.connectToHost(QString::fromStdString(hostAddr), port);
+}
+
+FTP_DEFINE_COMMAND(PORT) {
+    char *portCmd = strdup(commandToExec.c_str());
+    char *cmdData = strtok(portCmd, " ");
+    cmdData = strtok(nullptr, " ");
+    std::string hostAddr;
+    int port, cnt;
+    auto infoStrDup = strdup(cmdData);
+    char *part;
+    for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
+        if (cnt < 4) {
+            if (cnt < 3) {
+                hostAddr += std::string{part} + ".";
+            } else {
+                hostAddr += std::string{part};
+            }
+        } else {
+            if (cnt == 4) {
+                port = 256 * atoi(part);
+            } else if (cnt == 5) {
+                port += atoi(part);
+            }
+        }
+        cnt++;
+    }
+    free(infoStrDup);
+    free(portCmd);
+    if (cnt != 6) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的PASV返回！");
+        msgbox.exec();
+        return;
+    }
+    sockPort.listen(QHostAddress::Any, port);
+    connect(&sockPort, &QTcpServer::newConnection, [&]() {
+        auto *skt = sockPort.nextPendingConnection();
+        connect(skt, &QTcpSocket::readyRead, [&]() {
+
+        });
+    });
+    netCtrlTx(commandToExec);
+    auto resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了主动模式！");
+        msgbox.exec();
+        return;
+    }
+}
+
+FTP_DEFINE_COMMAND(USER) {
+    netCtrlTx(commandToExec);
+    auto resp = netCtrlRx();
+
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了用户登录！");
+        msgbox.exec();
+        return;
+    }
+}
+
+FTP_DEFINE_COMMAND(PASS) {
+    netCtrlTx(commandToExec);
+    auto resp = netCtrlRx();
+
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了用户登录！");
+        msgbox.exec();
+        return;
+    } else {
+        ui->button_upload->setEnabled(true);
+    }
+}
+
+FTP_DEFINE_COMMAND(SYST) {
+    netCtrlTx(commandToExec);
+    netCtrlRx();
+}
+
+FTP_DEFINE_COMMAND(TYPE) {
+    netCtrlTx(commandToExec);
+    netCtrlRx();
+}
+
+FTP_DEFINE_COMMAND(LIST) {
+    netCtrlTx(commandToExec);
+    netCtrlRx();
+}
