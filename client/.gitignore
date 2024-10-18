@@ -3,4 +3,5 @@ cmake-*
 build-*
 CMakeLists.txt.user
 client_test
-client
+test/client
+test/client.o
