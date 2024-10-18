@@ -18,7 +18,15 @@
         if (!txCtrlCommand(command)) { \
             std::cerr << "Error sending "#cmd" command." << std::endl; \
         } else if (!rxCtrlResponse(response)) { \
-            std::cerr << "Error receiving response for USER command." << std::endl; \
+            std::cerr << "Error receiving response for "#cmd" command." << std::endl; \
+        } \
+    }
+
+#define FTP_DIRECT_CMD_3(cmd)    else if (command.substr(0, 3) == #cmd) { \
+        if (!txCtrlCommand(command)) { \
+            std::cerr << "Error sending "#cmd" command." << std::endl; \
+        } else if (!rxCtrlResponse(response)) { \
+            std::cerr << "Error receiving response for "#cmd" command." << std::endl; \
         } \
     }
 
@@ -32,7 +40,7 @@ public:
 
 private:
     enum TransferMode {
-        PORT, PASV
+        NOT_SPECIFIED, PORT, PASV
     };
 
     int sockCtrl;
@@ -59,7 +67,7 @@ private:
 
     bool netReadLine(int socket, std::string &line);
 
-    bool enterPassiveMode();
+    bool enterPasvMode();
 
     bool enterPortMode();
 
@@ -211,31 +219,16 @@ bool FTPClient::routeCommand(const std::string &command) {
             std::cerr << "Error receiving response for QUIT command." << std::endl;
         }
         return false;  // Exit the command loop
-    } else if (command.substr(0, 4) == "USER") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending USER command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for USER command." << std::endl;
-        }
-    } else if (command.substr(0, 4) == "PASS") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending PASS command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for PASS command." << std::endl;
-        }
-    } else if (command.substr(0, 4) == "SYST") {
-        if (!txCtrlCommand("SYST")) {
-            std::cerr << "Error sending SYST command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for SYST command." << std::endl;
-        }
-    } else if (command.substr(0, 4) == "TYPE") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending TYPE command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for TYPE command." << std::endl;
-        }
-    } else if (command.substr(0, 4) == "LIST") {
+    }\
+ FTP_DIRECT_CMD_4(USER) \
+ FTP_DIRECT_CMD_4(PASS) \
+ FTP_DIRECT_CMD_4(SYST) \
+ FTP_DIRECT_CMD_4(TYPE) \
+ FTP_DIRECT_CMD_3(CWD) \
+ FTP_DIRECT_CMD_3(PWD) \
+ FTP_DIRECT_CMD_3(MKD) \
+ FTP_DIRECT_CMD_3(RMD)
+    else if (command.substr(0, 4) == "LIST") {
         std::string pathname = command.length() > 5 ? command.substr(5) : "";
         if (!listDirectory(pathname)) {
             std::cerr << "Error executing LIST command." << std::endl;
@@ -250,32 +243,8 @@ bool FTPClient::routeCommand(const std::string &command) {
         if (!storeFile(filename)) {
             std::cerr << "Error executing STOR command." << std::endl;
         }
-    } else if (command.substr(0, 3) == "CWD") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending CWD command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for CWD command." << std::endl;
-        }
-    } else if (command.substr(0, 3) == "PWD") {
-        if (!txCtrlCommand("PWD")) {
-            std::cerr << "Error sending PWD command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for PWD command." << std::endl;
-        }
-    } else if (command.substr(0, 3) == "MKD") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending MKD command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for MKD command." << std::endl;
-        }
-    } else if (command.substr(0, 3) == "RMD") {
-        if (!txCtrlCommand(command)) {
-            std::cerr << "Error sending RMD command." << std::endl;
-        } else if (!rxCtrlResponse(response)) {
-            std::cerr << "Error receiving response for RMD command." << std::endl;
-        }
     } else if (command == "PASV") {
-        if (!enterPassiveMode()) {
+        if (!enterPasvMode()) {
             std::cerr << "Error entering passive mode." << std::endl;
         }
     } else if (command.substr(0, 4) == "PORT") {
@@ -288,7 +257,7 @@ bool FTPClient::routeCommand(const std::string &command) {
     return true;
 }
 
-bool FTPClient::enterPassiveMode() {
+bool FTPClient::enterPasvMode() {
     if (!txCtrlCommand("PASV")) {
         std::cerr << "Error sending PASV command." << std::endl;
         return false;
@@ -299,7 +268,7 @@ bool FTPClient::enterPassiveMode() {
         return false;
     }
 
-    // Parse the response to extract IP and port
+    /* 解析 */
     size_t start = response.find('(');
     size_t end = response.find(')');
     std::cerr << response << std::endl;
@@ -308,6 +277,7 @@ bool FTPClient::enterPassiveMode() {
         return false;
     }
 
+    /* C++ 20 特性 */
     std::string pasvData = response.substr(start + 1, end - start - 1);
     std::replace(pasvData.begin(), pasvData.end(), ',', ' ');
     std::stringstream ss(pasvData);
@@ -326,20 +296,17 @@ bool FTPClient::enterPassiveMode() {
 }
 
 bool FTPClient::enterPortMode() {
-    // Close any existing data listen socket
     if (sockDataPort != -1) {
         close(sockDataPort);
         sockDataPort = -1;
     }
 
-    // Create a new socket for listening
     sockDataPort = socket(AF_INET, SOCK_STREAM, 0);
     if (sockDataPort < 0) {
         perror("socket");
         return false;
     }
 
-    // Bind to any available port
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -353,7 +320,6 @@ bool FTPClient::enterPortMode() {
         return false;
     }
 
-    // Get the port number assigned
     socklen_t addrLen = sizeof(addr);
     if (getsockname(sockDataPort, (struct sockaddr *) &addr, &addrLen) == -1) {
         perror("getsockname");
@@ -370,7 +336,6 @@ bool FTPClient::enterPortMode() {
         return false;
     }
 
-    // Prepare the PORT command
     std::string ip = cltIp;
     std::replace(ip.begin(), ip.end(), '.', ',');
     int p1 = portDataNumber / 256;
@@ -406,7 +371,6 @@ bool FTPClient::enterPortMode() {
 
 int FTPClient::dataChannelInit() {
     if (transMode == PASV) {
-        // Passive Mode
         int dataSocket = socket(AF_INET, SOCK_STREAM, 0);
         if (dataSocket < 0) {
             perror("socket");
@@ -432,7 +396,6 @@ int FTPClient::dataChannelInit() {
 
         return dataSocket;
     } else {
-        // Active Mode
         struct sockaddr_in clientAddr;
         socklen_t addrLen = sizeof(clientAddr);
         int dataSocket = accept(sockDataPort, (struct sockaddr *) &clientAddr, &addrLen);
@@ -442,13 +405,16 @@ int FTPClient::dataChannelInit() {
         }
 
         return dataSocket;
+    } else {
+        std::cerr << "You must specify the channel type!" << std::endl;
+        return -1;
     }
 }
 
 bool FTPClient::listDirectory(const std::string &pathname) {
     if (transMode == PASV) {
         if (pasvDataIP.empty()) {
-            if (!enterPassiveMode()) {
+            if (!enterPasvMode()) {
                 return false;
             }
         }
@@ -486,9 +452,9 @@ bool FTPClient::listDirectory(const std::string &pathname) {
         return false;
     }
 
-    // Receive data
     char buffer[4096];
     ssize_t bytesReceived;
+    /* ls输出，直接输出到标准输出流 */
     while ((bytesReceived = recv(dataSocket, buffer, sizeof(buffer), 0)) > 0) {
         std::cout.write(buffer, bytesReceived);
     }
@@ -501,7 +467,6 @@ bool FTPClient::listDirectory(const std::string &pathname) {
 
     close(dataSocket);
 
-    // Receive final response
     if (!rxCtrlResponse(response)) {
         std::cerr << "Error receiving final response for LIST command." << std::endl;
         return false;
@@ -511,24 +476,20 @@ bool FTPClient::listDirectory(const std::string &pathname) {
 }
 
 bool FTPClient::retrieveFile(const std::string &filename) {
+    std::string response;
+    std::string cmd = "RETR " + filename;
     if (filename.empty()) {
         std::cerr << "Filename is required for RETR command." << std::endl;
         return false;
     }
-
-    std::string response;
-
-    std::string cmd = "RETR " + filename;
     if (!txCtrlCommand(cmd)) {
         std::cerr << "Error sending RETR command." << std::endl;
         return false;
     }
-
     if (!rxCtrlResponse(response)) {
         std::cerr << "Error receiving response for RETR command." << std::endl;
         return false;
     }
-
     if (response.substr(0, 3) != "150" && response.substr(0, 3) != "125") {
         std::cerr << "RETR command failed: " << response << std::endl;
         return false;
@@ -539,7 +500,6 @@ bool FTPClient::retrieveFile(const std::string &filename) {
         return false;
     }
 
-    // Open file for writing
     std::ofstream outFile(filename, std::ios::binary);
     if (!outFile) {
         std::cerr << "Cannot open file for writing: " << filename << std::endl;
@@ -563,7 +523,6 @@ bool FTPClient::retrieveFile(const std::string &filename) {
     outFile.close();
     close(dataSocket);
 
-    // Receive final response
     if (!rxCtrlResponse(response)) {
         std::cerr << "Error receiving final response for RETR command." << std::endl;
         return false;
@@ -573,47 +532,20 @@ bool FTPClient::retrieveFile(const std::string &filename) {
 }
 
 bool FTPClient::storeFile(const std::string &filename) {
+    std::string cmd = "STOR " + filename;
+    std::string response;
     if (filename.empty()) {
         std::cerr << "Filename is required for STOR command." << std::endl;
         return false;
     }
-
-    // Set binary mode
-    if (!txCtrlCommand("TYPE I")) {
-        std::cerr << "Error setting binary mode." << std::endl;
-        return false;
-    }
-    std::string response;
-    if (!rxCtrlResponse(response)) {
-        std::cerr << "Error receiving response for TYPE command." << std::endl;
-        return false;
-    }
-
-    if (transMode == PASV) {
-        if (pasvDataIP.empty()) {
-            if (!enterPassiveMode()) {
-                return false;
-            }
-        }
-    } else {
-        if (sockDataPort == -1) {
-            if (!enterPortMode()) {
-                return false;
-            }
-        }
-    }
-
-    std::string cmd = "STOR " + filename;
     if (!txCtrlCommand(cmd)) {
         std::cerr << "Error sending STOR command." << std::endl;
         return false;
     }
-
     if (!rxCtrlResponse(response)) {
         std::cerr << "Error receiving response for STOR command." << std::endl;
         return false;
     }
-
     if (response.substr(0, 3) != "150" && response.substr(0, 3) != "125") {
         std::cerr << "STOR command failed: " << response << std::endl;
         return false;
@@ -624,14 +556,12 @@ bool FTPClient::storeFile(const std::string &filename) {
         return false;
     }
 
-    // Open file for reading
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
         std::cerr << "Cannot open file for reading: " << filename << std::endl;
         close(dataSocket);
         return false;
     }
-
     char buffer[4096];
     while (inFile.read(buffer, sizeof(buffer))) {
         ssize_t bytesSent = send(dataSocket, buffer, inFile.gcount(), 0);
@@ -642,8 +572,6 @@ bool FTPClient::storeFile(const std::string &filename) {
             return false;
         }
     }
-
-    // Send any remaining bytes
     if (inFile.gcount() > 0) {
         ssize_t bytesSent = send(dataSocket, buffer, inFile.gcount(), 0);
         if (bytesSent < 0) {
@@ -657,7 +585,6 @@ bool FTPClient::storeFile(const std::string &filename) {
     inFile.close();
     close(dataSocket);
 
-    // Receive final response
     if (!rxCtrlResponse(response)) {
         std::cerr << "Error receiving final response for STOR command." << std::endl;
         return false;
@@ -671,23 +598,16 @@ void FTPClient::run() {
         std::cerr << "Failed to connect to FTP server." << std::endl;
         return;
     }
-
     transMode = PASV;
 
-//  std::cout << "FTP Client is On!" << std::endl;
-
-    // Command loop
     std::string command;
     while (true) {
-//    std::cout << "> ";
         if (!std::getline(std::cin, command)) {
             break;
         }
-
         if (command.empty()) {
             continue;
         }
-
         if (!routeCommand(command)) {
             break;
         }
@@ -697,7 +617,6 @@ void FTPClient::run() {
 int main(int argc, char *argv[]) {
     std::string serverIP = "127.0.0.1";
     int serverPort = 21;
-    // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "-ip") == 0 && i + 1 < argc) {
             serverIP = argv[i + 1];
@@ -710,7 +629,6 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
-
 
     FTPClient ftpClient(serverIP, serverPort);
     ftpClient.run();
