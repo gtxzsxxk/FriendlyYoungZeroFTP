@@ -411,20 +411,6 @@ int FTPClient::dataChannelInit() {
 }
 
 bool FTPClient::listDirectory(const std::string &pathname) {
-    if (transMode == PASV) {
-        if (pasvDataIP.empty()) {
-            if (!enterPasvMode()) {
-                return false;
-            }
-        }
-    } else {
-        if (sockDataPort == -1) {
-            if (!enterPortMode()) {
-                return false;
-            }
-        }
-    }
-
     std::string cmd = "LIST";
     if (!pathname.empty()) {
         cmd += " " + pathname;
