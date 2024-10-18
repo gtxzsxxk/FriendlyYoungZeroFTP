@@ -394,7 +394,7 @@ int FTPClient::dataChannelInit() {
         }
 
         return dataSocket;
-    } else {
+    } else if (transMode == PORT) {
         struct sockaddr_in clientAddr;
         socklen_t addrLen = sizeof(clientAddr);
         int dataSocket = accept(sockDataPort, (struct sockaddr *) &clientAddr, &addrLen);
