@@ -58,7 +58,7 @@ class TestClient:
     # run a standard FTP server
     def run_std_server(self):
         with open(self.logfilename, "w") as logfile:
-            self.server = subprocess.Popen(["python", "std_server.py", self.server_root_dir, str(self.server_port)],
+            self.server = subprocess.Popen(["python3", "std_server.py", self.server_root_dir, str(self.server_port)],
                                             stdin=subprocess.PIPE,
                                             stdout=logfile,
                                             stderr=logfile,
