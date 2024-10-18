@@ -72,3 +72,5 @@ install(TARGETS client
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(client)
 endif()
+
+add_executable(client_headless headless.cpp)
