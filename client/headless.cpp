@@ -271,7 +271,6 @@ bool FTPClient::enterPasvMode() {
     /* 解析 */
     size_t start = response.find('(');
     size_t end = response.find(')');
-    std::cerr << response << std::endl;
     if (start == std::string::npos || end == std::string::npos) {
         std::cerr << "Invalid PASV response format." << std::endl;
         return false;
