@@ -30,9 +30,11 @@ private:
     Ui::MainWindow *ui;
     QTcpSocket sockClient;
     QTcpSocket sockPasv;
-    QTcpServer sockPort;
+    QTcpSocket *sockData;
+    QTcpServer serverPort;
     bool uiConnectedState = false;
     std::string commandToExec;
+    enum ConnectionType transferMode = NOT_SPECIFIED;
 
     void netCtrlTx(const std::string &data);
 

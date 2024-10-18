@@ -138,6 +138,8 @@ FTP_DEFINE_COMMAND(PASV) {
     }
 
     sockPasv.connectToHost(QString::fromStdString(hostAddr), port);
+    sockData = &sockPasv;
+    transferMode = PASV;
 }
 
 FTP_DEFINE_COMMAND(PORT) {
@@ -171,12 +173,9 @@ FTP_DEFINE_COMMAND(PORT) {
         msgbox.exec();
         return;
     }
-    sockPort.listen(QHostAddress::Any, port);
-    connect(&sockPort, &QTcpServer::newConnection, [&]() {
-        auto *skt = sockPort.nextPendingConnection();
-        connect(skt, &QTcpSocket::readyRead, [&]() {
-
-        });
+    serverPort.listen(QHostAddress::Any, port);
+    connect(&serverPort, &QTcpServer::newConnection, [&]() {
+        sockData = serverPort.nextPendingConnection();
     });
     netCtrlTx(commandToExec);
     auto resp = netCtrlRx();
@@ -185,6 +184,8 @@ FTP_DEFINE_COMMAND(PORT) {
         msgbox.exec();
         return;
     }
+
+    transferMode = PORT;
 }
 
 FTP_DEFINE_COMMAND(USER) {
