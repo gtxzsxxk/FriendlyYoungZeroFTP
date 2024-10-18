@@ -1,7 +1,9 @@
 #include "../include/mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
+#include <QTableWidgetItem>
 #include <cstring>
+#include <sstream>
 
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -21,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->input_password->setEchoMode(QLineEdit::Password);
     ui->progressBar->hide();
     ui->table_file->setColumnCount(5);
-    ui->table_file->setHorizontalHeaderLabels({"文件名", "修改时间", "大小", "所有者/组", "状态"});
+    ui->table_file->setHorizontalHeaderLabels({"文件名", "修改时间", "大小", "所有者/组", "属性"});
     ui->table_file->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->input_command->setFocusPolicy(Qt::NoFocus);
     ui->input_directory->setFocusPolicy(Qt::NoFocus);
@@ -223,6 +225,54 @@ FTP_DEFINE_COMMAND(TYPE) {
 }
 
 FTP_DEFINE_COMMAND(LIST) {
+    while (ui->table_file->rowCount()) {
+        ui->table_file->removeRow(0);
+    }
+
+    if (transferMode == NOT_SPECIFIED) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 LIST 之前你必须设置 PASV 或 PORT！");
+        msgbox.exec();
+        return;
+    }
+
     netCtrlTx(commandToExec);
-    netCtrlRx();
+    auto resp = netCtrlRx();
+    if (resp[0] != '1') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST状态错误！");
+        msgbox.exec();
+        return;
+    }
+
+    auto dataRecv = sockData->readAll().data();
+    char *line;
+    int row = 0;
+    for (line = strtok(dataRecv, "\r\n"); line; line = strtok(nullptr, "\r\n")) {
+        std::stringstream ss{line};
+        std::string prop, links, owner, group, size, month, day, tm, filename;
+        ss >> prop >> links >> owner >> group >> size >> month >> day >> tm >> filename;
+        auto modifyTm = month + " " + day + " " + tm;
+        ui->table_file->insertRow(row);
+        for (int i = 0; i < 5; i++) {
+            QTableWidgetItem *t;
+            switch (row) {
+                case 0:
+                    *t = QTableWidgetItem{QString::fromStdString(filename)};
+                    break;
+                case 1:
+                    *t = QTableWidgetItem{QString::fromStdString(modifyTm)};
+                    break;
+                case 2:
+                    *t = QTableWidgetItem{QString::fromStdString(size)};
+                    break;
+                case 3:
+                    *t = QTableWidgetItem{QString::fromStdString(owner + " / " + group)};
+                    break;
+                case 4:
+                    *t = QTableWidgetItem{QString::fromStdString(prop)};
+                    break;
+            }
+            ui->table_file->setItem(row, i, t);
+        }
+        row++;
+    }
 }
