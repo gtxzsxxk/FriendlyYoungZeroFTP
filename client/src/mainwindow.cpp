@@ -187,7 +187,7 @@ FTP_DEFINE_COMMAND(PORT) {
     char *cmdData = strtok(portCmd, " ");
     cmdData = strtok(nullptr, " ");
     std::string hostAddr;
-    int port, cnt;
+    int port, cnt = 0;
     auto infoStrDup = strdup(cmdData);
     char *part;
     for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
