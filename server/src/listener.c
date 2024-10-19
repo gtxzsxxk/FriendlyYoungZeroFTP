@@ -137,7 +137,7 @@ int start_listen(int port) {
                         /* 加入 poll */
                         struct pollfd fd = {
                                 .fd = client_fd,
-                                .events = POLLIN,
+                                .events = POLLIN | POLLERR | POLLHUP | POLLNVAL,
                         };
                         int fd_pos = push_new_fd(fd);
                         if (fd_pos < 0) {
@@ -157,7 +157,7 @@ int start_listen(int port) {
                         continue;
                     }
                     if (client->sock_fd) {
-                        fds[client->nfds].events |= POLLOUT;
+                        fds[client->nfds].events |= POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                     }
                 } else if (fds[i].fd == exit_fd[0]) {
                     /* 关闭连接 */
@@ -166,7 +166,7 @@ int start_listen(int port) {
                         continue;
                     }
                     if (client->net_state == NEED_QUIT) {
-                        fds[client->nfds].events |= POLLOUT;
+                        fds[client->nfds].events |= POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                     }
                 } else {
                     /* 处理 client 传输过来的命令 */
@@ -206,7 +206,7 @@ int start_listen(int port) {
 
                 if (client && client->sock_fd) {
                     if (client->net_state == NEED_SEND) {
-                        fds[client->nfds].events = POLLOUT;
+                        fds[client->nfds].events = POLLOUT | POLLERR | POLLHUP | POLLNVAL;
                     }
                 }
             } else if (fds[i].revents & POLLOUT) {
@@ -227,15 +227,15 @@ int start_listen(int port) {
                     logger_err("Cannot send data to the client with fd %d", fds[i].fd);
                 }
                 /* 恢复 POLLIN */
-                fds[i].events = POLLIN;
+                fds[i].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
 
                 if (client->net_state == NEED_QUIT) {
                     close_client_connection(client);
                     continue;
                 }
                 client->net_state = IDLE;
-            } else if (fds[i].revents & POLLNVAL) {
-                if (i > 1) {
+            } else if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                if (i > 2) {
                     close_fd_connection(i);
                     i = -1;
                     continue;
