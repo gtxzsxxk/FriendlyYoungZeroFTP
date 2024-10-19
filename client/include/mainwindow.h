@@ -34,7 +34,13 @@ private:
     QTcpServer serverPort;
     bool uiConnectedState = false;
     std::string commandToExec;
+    std::string username;
+    std::string password;
     enum ConnectionType transferMode = NOT_SPECIFIED;
+
+    void viewSetUILoggedIn(void);
+
+    void viewSetUIDisconnected(void);
 
     void netCtrlTx(const std::string &data);
 

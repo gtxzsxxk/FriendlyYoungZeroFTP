@@ -2,6 +2,7 @@
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
 #include <QTableWidgetItem>
+#include <QThread>
 #include <cstring>
 #include <sstream>
 
@@ -25,7 +26,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->table_file->setColumnCount(5);
     ui->table_file->setHorizontalHeaderLabels({"文件名", "修改时间", "大小", "所有者/组", "属性"});
     ui->table_file->setSelectionBehavior(QAbstractItemView::SelectRows);
-    ui->input_command->setFocusPolicy(Qt::NoFocus);
     ui->input_directory->setFocusPolicy(Qt::NoFocus);
 }
 
@@ -37,8 +37,8 @@ void MainWindow::fastConnectOrQuit() {
     if (ui->button_fastconnect->text() == "快速连接") {
         auto host = ui->input_host->text();
         auto port = ui->input_port->text();
-        auto username = ui->input_username->text();
-        auto password = ui->input_password->text();
+        username = ui->input_username->text().toStdString();
+        password = ui->input_password->text().toStdString();
         if (host.isEmpty()) {
             auto msgbox = QMessageBox(QMessageBox::Warning, "警告", "请输入主机 IP 地址！");
             msgbox.exec();
@@ -47,24 +47,45 @@ void MainWindow::fastConnectOrQuit() {
         if (port.isEmpty()) {
             port = "21";
         }
-        if (username.isEmpty()) {
+        if (username.empty()) {
             username = "anonymous";
         }
-        if (password.isEmpty()) {
-            username = "anonymous@example.com";
+        if (password.empty()) {
+            password = "anonymous@example.com";
         }
         sockClient.connectToHost(host, port.toInt());
     } else {
         if (uiConnectedState) {
             sockClient.close();
         }
-        ui->button_upload->setEnabled(false);
-        ui->button_fastconnect->setText("快速连接");
+        viewSetUIDisconnected();
     }
 }
 
 void MainWindow::txCommandByWidgets() {
-
+    auto cmd = ui->input_command->text().toStdString();
+    if (!cmd.empty()) {
+        if (cmd.substr(0, 4) == "PASV") {
+            commandToExec = cmd;
+            execFtpCmdPASV();
+        } else if (cmd.substr(0, 4) == "PORT") {
+            commandToExec = cmd;
+            execFtpCmdPORT();
+        } else if (cmd.substr(0, 4) == "LIST") {
+            commandToExec = cmd;
+            execFtpCmdLIST();
+        } else if (cmd.substr(0, 4) == "RETR") {
+            commandToExec = cmd;
+//            execFtpCmdRETR();
+        } else if (cmd.substr(0, 4) == "STOR") {
+            commandToExec = cmd;
+//            execFtpCmdSTOR();
+        } else {
+            netCtrlTx(ui->input_command->text().toStdString() + "\r\n");
+            netCtrlRx();
+        }
+        ui->input_command->setText("");
+    }
 }
 
 void MainWindow::uploadFile() {
@@ -76,15 +97,24 @@ void MainWindow::retrieveFile(int row, int column) {
 }
 
 void MainWindow::netCtrlTx(const std::string &data) {
-    ui->textBrowser->insertPlainText(("Client -> " + data).c_str());
+    ui->textBrowser->insertPlainText(("$ " + data).c_str());
     sockClient.write(data.c_str());
+    sockClient.waitForBytesWritten();
+    sockClient.flush();
 }
 
 std::string MainWindow::netCtrlRx() {
     ui->textBrowser->moveCursor(ui->textBrowser->textCursor().End);
-    char buffer[1024];
-    auto ret = sockClient.read(buffer, 1024);
-    return {buffer};
+    std::string str;
+    if (sockClient.bytesAvailable() == 0) {
+        sockClient.waitForReadyRead();
+    }
+    str = sockClient.readLine(8192).toStdString();
+    if (!str.empty()) {
+        ui->textBrowser->insertPlainText(QString::fromStdString(str));
+    }
+    ui->textBrowser->moveCursor(ui->textBrowser->textCursor().End);
+    return str;
 }
 
 void MainWindow::networkErrorOccurred(QAbstractSocket::SocketError socketError) {
@@ -95,10 +125,17 @@ void MainWindow::networkErrorOccurred(QAbstractSocket::SocketError socketError) 
 }
 
 void MainWindow::networkConnected() {
-    auto msgbox = QMessageBox(QMessageBox::Warning, "喜报", "成功连接服务器！");
-    ui->button_fastconnect->setText("断开连接");
-    uiConnectedState = true;
-    msgbox.exec();
+    auto resp = netCtrlRx();
+    while (resp[3] != ' ') {
+        resp = netCtrlRx();
+    }
+    viewSetUILoggedIn();
+    commandToExec = "USER " + username + "\r\n";
+    execFtpCmdUSER();
+    commandToExec = "PASS " + password + "\r\n";
+    execFtpCmdPASS();
+    execFtpCmdPASV();
+    execFtpCmdLIST();
 }
 
 FTP_DEFINE_COMMAND(PASV) {
@@ -113,7 +150,7 @@ FTP_DEFINE_COMMAND(PASV) {
     auto infoEnd = resp.find(")");
     auto infoStr = resp.substr(infoStart, infoEnd - infoStart);
     std::string hostAddr;
-    int port, cnt;
+    int port, cnt = 0;
     auto infoStrDup = strdup(infoStr.c_str());
     char *part;
     for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
@@ -138,9 +175,10 @@ FTP_DEFINE_COMMAND(PASV) {
         msgbox.exec();
         return;
     }
-
+    QThread::msleep(200);
     sockPasv.connectToHost(QString::fromStdString(hostAddr), port);
     sockData = &sockPasv;
+    sockData->waitForConnected();
     transferMode = PASV;
 }
 
@@ -194,7 +232,7 @@ FTP_DEFINE_COMMAND(USER) {
     netCtrlTx(commandToExec);
     auto resp = netCtrlRx();
 
-    if (resp[0] != '2') {
+    if (resp[0] != '3' || resp[1] != '3' || resp[2] != '1') {
         auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了用户登录！");
         msgbox.exec();
         return;
@@ -204,6 +242,9 @@ FTP_DEFINE_COMMAND(USER) {
 FTP_DEFINE_COMMAND(PASS) {
     netCtrlTx(commandToExec);
     auto resp = netCtrlRx();
+    while (resp[3] != ' ') {
+        resp = netCtrlRx();
+    }
 
     if (resp[0] != '2') {
         auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了用户登录！");
@@ -215,12 +256,12 @@ FTP_DEFINE_COMMAND(PASS) {
 }
 
 FTP_DEFINE_COMMAND(SYST) {
-    netCtrlTx(commandToExec);
+    netCtrlTx("SYST\r\n");
     netCtrlRx();
 }
 
 FTP_DEFINE_COMMAND(TYPE) {
-    netCtrlTx(commandToExec);
+    netCtrlTx("TYPE I\r\n");
     netCtrlRx();
 }
 
@@ -235,15 +276,30 @@ FTP_DEFINE_COMMAND(LIST) {
         return;
     }
 
-    netCtrlTx(commandToExec);
+    netCtrlTx("LIST\r\n");
     auto resp = netCtrlRx();
     if (resp[0] != '1') {
-        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST状态错误！");
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST状态错误1！");
         msgbox.exec();
         return;
     }
 
-    auto dataRecv = sockData->readAll().data();
+    resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST状态错误2！");
+        msgbox.exec();
+        return;
+    }
+
+    sockData->waitForReadyRead();
+    auto *dataRecv = new char[8192 * 10];
+    auto ret = sockData->read(dataRecv, 8192 * 10);
+    if (ret <= 0) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST 数据通道错误！");
+        msgbox.exec();
+        return;
+    }
+    dataRecv[ret] = 0;
     char *line;
     int row = 0;
     for (line = strtok(dataRecv, "\r\n"); line; line = strtok(nullptr, "\r\n")) {
@@ -254,25 +310,41 @@ FTP_DEFINE_COMMAND(LIST) {
         ui->table_file->insertRow(row);
         for (int i = 0; i < 5; i++) {
             QTableWidgetItem *t;
-            switch (row) {
+            switch (i) {
                 case 0:
-                    *t = QTableWidgetItem{QString::fromStdString(filename)};
+                    t = new QTableWidgetItem{QString::fromStdString(filename)};
                     break;
                 case 1:
-                    *t = QTableWidgetItem{QString::fromStdString(modifyTm)};
+                    t = new QTableWidgetItem{QString::fromStdString(modifyTm)};
                     break;
                 case 2:
-                    *t = QTableWidgetItem{QString::fromStdString(size)};
+                    t = new QTableWidgetItem{QString::fromStdString(size)};
                     break;
                 case 3:
-                    *t = QTableWidgetItem{QString::fromStdString(owner + " / " + group)};
+                    t = new QTableWidgetItem{QString::fromStdString(owner + " / " + group)};
                     break;
                 case 4:
-                    *t = QTableWidgetItem{QString::fromStdString(prop)};
+                    t = new QTableWidgetItem{QString::fromStdString(prop)};
                     break;
             }
             ui->table_file->setItem(row, i, t);
         }
         row++;
     }
+    delete[] dataRecv;
+    sockData->close();
+}
+
+void MainWindow::viewSetUILoggedIn(void) {
+    ui->button_exec_cmd->setEnabled(true);
+    ui->button_upload->setEnabled(true);
+    ui->button_fastconnect->setText("断开连接");
+    uiConnectedState = true;
+}
+
+void MainWindow::viewSetUIDisconnected(void) {
+    ui->button_exec_cmd->setEnabled(false);
+    ui->button_upload->setEnabled(false);
+    ui->button_fastconnect->setText("快速连接");
+    uiConnectedState = false;
 }
