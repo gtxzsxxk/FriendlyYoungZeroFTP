@@ -5,6 +5,7 @@
 #include <QThread>
 #include <cstring>
 #include <sstream>
+#include <fstream>
 
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -76,10 +77,10 @@ void MainWindow::txCommandByWidgets() {
             execFtpCmdLIST();
         } else if (cmd.substr(0, 4) == "RETR") {
             commandToExec = cmd;
-//            execFtpCmdRETR();
+            execFtpCmdRETR();
         } else if (cmd.substr(0, 4) == "STOR") {
             commandToExec = cmd;
-//            execFtpCmdSTOR();
+            execFtpCmdSTOR();
         } else {
             netCtrlTx(ui->input_command->text().toStdString() + "\r\n");
             netCtrlRx();
@@ -109,24 +110,27 @@ std::string MainWindow::netCtrlRx() {
     if (sockClient.bytesAvailable() == 0) {
         sockClient.waitForReadyRead();
     }
-    str = sockClient.readLine(8192).toStdString();
-    if (!str.empty()) {
-        ui->textBrowser->insertPlainText(QString::fromStdString(str));
+    if (sockClient.isOpen()) {
+        str = sockClient.readLine(8192).toStdString();
+        if (!str.empty()) {
+            ui->textBrowser->insertPlainText(QString::fromStdString(str));
+        }
+        ui->textBrowser->moveCursor(ui->textBrowser->textCursor().End);
+        return str;
     }
-    ui->textBrowser->moveCursor(ui->textBrowser->textCursor().End);
-    return str;
+    return "";
 }
 
 void MainWindow::networkErrorOccurred(QAbstractSocket::SocketError socketError) {
-    /* TODO: 恢复到未连接状态 */
-    auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "未能成功连接服务器！");
-    ui->button_fastconnect->setText("快速连接");
+    viewSetUIDisconnected();
+    sockClient.close();
+    auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "连接服务器失败！");
     msgbox.exec();
 }
 
 void MainWindow::networkConnected() {
     auto resp = netCtrlRx();
-    while (resp[3] != ' ') {
+    while (!resp.empty() && resp[3] != ' ') {
         resp = netCtrlRx();
     }
     viewSetUILoggedIn();
@@ -171,11 +175,11 @@ FTP_DEFINE_COMMAND(PASV) {
     }
     free(infoStrDup);
     if (cnt != 6) {
-        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的PASV返回！");
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的 PASV 返回！");
         msgbox.exec();
         return;
     }
-    QThread::msleep(200);
+    QThread::msleep(100);
     sockPasv.connectToHost(QString::fromStdString(hostAddr), port);
     sockData = &sockPasv;
     sockData->waitForConnected();
@@ -209,22 +213,24 @@ FTP_DEFINE_COMMAND(PORT) {
     free(infoStrDup);
     free(portCmd);
     if (cnt != 6) {
-        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的PASV返回！");
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法解析服务器的 PORT 返回！");
         msgbox.exec();
         return;
     }
     serverPort.listen(QHostAddress::Any, port);
     connect(&serverPort, &QTcpServer::newConnection, [&]() {
-        sockData = serverPort.nextPendingConnection();
+        auto tmp = serverPort.nextPendingConnection();
+        if (tmp) {
+            sockData = tmp;
+        }
     });
-    netCtrlTx(commandToExec);
+    netCtrlTx(commandToExec + "\r\n");
     auto resp = netCtrlRx();
     if (resp[0] != '2') {
         auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "服务器拒绝了主动模式！");
         msgbox.exec();
         return;
     }
-
     transferMode = PORT;
 }
 
