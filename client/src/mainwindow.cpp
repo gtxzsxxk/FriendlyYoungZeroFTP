@@ -470,5 +470,9 @@ void MainWindow::viewSetUIDisconnected(void) {
     ui->button_exec_cmd->setEnabled(false);
     ui->button_upload->setEnabled(false);
     ui->button_fastconnect->setText("快速连接");
+    ui->textBrowser->clear();
+    while (ui->table_file->rowCount()) {
+        ui->table_file->removeRow(0);
+    }
     uiConnectedState = false;
 }
