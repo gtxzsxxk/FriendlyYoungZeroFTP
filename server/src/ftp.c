@@ -275,6 +275,7 @@ FTP_FUNC_DEFINE(LIST) {
         if (!argument) {
             if (client->conn_type == NOT_SPECIFIED) {
                 protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
+                return 0;
             } else {
                 if (!fs_directory_allows(service_root, client->cwd)) {
                     protocol_client_resp_by_state_machine(client, 550, "Not in the root folder.");
@@ -286,6 +287,7 @@ FTP_FUNC_DEFINE(LIST) {
                 FILE *fp = popen(shell, "r");
                 if (!fp) {
                     protocol_client_resp_by_state_machine(client, 451, "Failed to call ls -l.");
+                    return 0;
                 } else {
                     const size_t init_len = 8192;
                     size_t buf_len = init_len;
@@ -440,6 +442,7 @@ FTP_FUNC_DEFINE(RETR) {
     if (client->ftp_state == LOGGED_IN) {
         if (client->conn_type == NOT_SPECIFIED) {
             protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
+            return 0;
         } else {
             if (argument) {
                 /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
@@ -457,7 +460,7 @@ FTP_FUNC_DEFINE(RETR) {
                 if (strstr(argument, "../") != NULL) {
                     /* 含有 ../，禁止执行 */
                     protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
-                    return 1;
+                    return 0;
                 }
                 if (argument[0] == '/') {
                     fullpath = fs_path_join(service_root, argument);
@@ -499,6 +502,7 @@ FTP_FUNC_DEFINE(STOR) {
     if (client->ftp_state == LOGGED_IN) {
         if (client->conn_type == NOT_SPECIFIED) {
             protocol_client_resp_by_state_machine(client, 550, "Specify the PORT/PASV mode.");
+            return 0;
         } else {
             if (argument) {
                 /* 这里的argument仅仅判断是不是有文件名作为参数存在，真正的文件名
@@ -516,7 +520,7 @@ FTP_FUNC_DEFINE(STOR) {
                 if (strstr(argument, "../") != NULL) {
                     /* 含有 ../，禁止执行 */
                     protocol_client_resp_by_state_machine(client, 550, "Must not contain '../'.");
-                    return 1;
+                    return 0;
                 }
                 if (argument[0] == '/') {
                     fullpath = fs_path_join(service_root, argument);
