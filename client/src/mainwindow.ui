@@ -163,6 +163,12 @@
       <height>251</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <family>Consolas</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
    </widget>
    <widget class="QLineEdit" name="input_command">
     <property name="geometry">
