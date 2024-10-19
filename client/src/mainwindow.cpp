@@ -325,6 +325,140 @@ FTP_DEFINE_COMMAND(LIST) {
     sockData->close();
 }
 
+FTP_DEFINE_COMMAND(RETR) {
+    if (transferMode == NOT_SPECIFIED) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 RETR 之前你必须设置 PASV 或 PORT！");
+        msgbox.exec();
+        return;
+    }
+
+    std::string filename;
+    if (commandToExec.length() <= 5) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 RETR 的指令格式不对！");
+        msgbox.exec();
+        return;
+    }
+    filename = commandToExec.substr(5);
+    netCtrlTx("RETR " + filename + "\r\n");
+    auto resp = netCtrlRx();
+    if (resp[0] != '1') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "RETR状态错误1！");
+        msgbox.exec();
+        return;
+    }
+
+    if (transferMode == PORT) {
+        while (sockData == nullptr) {
+            QThread::msleep(100);
+        }
+    }
+
+    resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "RETR状态错误2！");
+        msgbox.exec();
+        return;
+    }
+
+    std::ofstream outFile(filename, std::ios::binary);
+    if (!outFile) {
+        sockData->close();
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法写入文件！");
+        msgbox.exec();
+        return;
+    }
+
+    auto *dataRecv = new char[65536];
+    while (true) {
+        if (sockData->bytesAvailable() == 0) {
+            sockData->waitForReadyRead();
+        }
+        auto ret = sockData->read(dataRecv, 65536);
+        if (ret == 0) {
+            break;
+        } else if (ret < 0) {
+            /* 错误 */
+            break;
+        }
+        outFile.write(dataRecv, ret);
+    }
+    delete[] dataRecv;
+    outFile.close();
+    sockData->close();
+    if (transferMode == PORT) {
+        serverPort.close();
+    }
+    transferMode = NOT_SPECIFIED;
+}
+
+FTP_DEFINE_COMMAND(STOR) {
+    if (transferMode == NOT_SPECIFIED) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 STOR 之前你必须设置 PASV 或 PORT！");
+        msgbox.exec();
+        return;
+    }
+
+    std::string filename;
+    if (commandToExec.length() <= 5) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 STOR 的指令格式不对！");
+        msgbox.exec();
+        return;
+    }
+    filename = commandToExec.substr(5);
+    netCtrlTx("STOR " + filename + "\r\n");
+    auto resp = netCtrlRx();
+    if (resp[0] != '1') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "STOR状态错误1！");
+        msgbox.exec();
+        return;
+    }
+
+    if (transferMode == PORT) {
+        while (sockData == nullptr) {
+            QThread::msleep(100);
+        }
+    }
+
+    std::ifstream inFile(filename, std::ios::binary);
+    if (!inFile) {
+        sockData->close();
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法打开文件！");
+        msgbox.exec();
+        return;
+    }
+
+    char buffer[4096];
+    while (inFile.read(buffer, sizeof(buffer))) {
+        auto bytesSent = sockData->write(buffer, inFile.gcount());
+        if (bytesSent < 0) {
+            auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法发送文件！");
+            msgbox.exec();
+            break;
+        }
+    }
+    if (inFile.gcount() > 0) {
+        auto bytesSent = sockData->write(buffer, inFile.gcount());
+        if (bytesSent < 0) {
+            auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "无法发送文件！");
+            msgbox.exec();
+        }
+    }
+    sockData->waitForBytesWritten();
+    sockData->flush();
+    inFile.close();
+    sockData->close();
+
+    resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "STOR状态错误2！");
+        msgbox.exec();
+    }
+    if (transferMode == PORT) {
+        serverPort.close();
+    }
+    transferMode = NOT_SPECIFIED;
+}
+
 void MainWindow::viewSetUILoggedIn(void) {
     ui->button_exec_cmd->setEnabled(true);
     ui->button_upload->setEnabled(true);
