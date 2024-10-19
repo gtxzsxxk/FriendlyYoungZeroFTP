@@ -102,8 +102,16 @@ void MainWindow::uploadFile() {
 
 }
 
-void MainWindow::retrieveFile(int row, int column) {
-
+void MainWindow::retrieveFileFromTable(int row, int column) {
+    if(ui->table_file->item(row, 4)->text()[0] == 'd') {
+        commandToExec = "CWD " + ui->table_file->item(row, 0)->text().toStdString();
+        execFtpCmdCWD();
+    } else {
+        commandToExec = "PASV";
+        execFtpCmdPASV();
+        commandToExec = "RETR " + ui->table_file->item(row, 0)->text().toStdString();
+        execFtpCmdRETR();
+    }
 }
 
 void MainWindow::netCtrlTx(const std::string &data) {
