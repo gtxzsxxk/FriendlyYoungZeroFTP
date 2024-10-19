@@ -274,6 +274,12 @@ FTP_DEFINE_COMMAND(LIST) {
         return;
     }
 
+    if (transferMode == PORT) {
+        while (sockData == nullptr) {
+            QThread::msleep(100);
+        }
+    }
+
     resp = netCtrlRx();
     if (resp[0] != '2') {
         auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST状态错误2！");
@@ -323,6 +329,10 @@ FTP_DEFINE_COMMAND(LIST) {
     }
     delete[] dataRecv;
     sockData->close();
+    if (transferMode == PORT) {
+        serverPort.close();
+    }
+    transferMode = NOT_SPECIFIED;
 }
 
 FTP_DEFINE_COMMAND(RETR) {
