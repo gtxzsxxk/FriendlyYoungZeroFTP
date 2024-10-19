@@ -255,16 +255,6 @@ FTP_DEFINE_COMMAND(PASS) {
     }
 }
 
-FTP_DEFINE_COMMAND(SYST) {
-    netCtrlTx("SYST\r\n");
-    netCtrlRx();
-}
-
-FTP_DEFINE_COMMAND(TYPE) {
-    netCtrlTx("TYPE I\r\n");
-    netCtrlRx();
-}
-
 FTP_DEFINE_COMMAND(LIST) {
     while (ui->table_file->rowCount()) {
         ui->table_file->removeRow(0);
