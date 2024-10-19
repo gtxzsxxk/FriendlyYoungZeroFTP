@@ -57,6 +57,8 @@ void MainWindow::fastConnectOrQuit() {
         sockClient.connectToHost(host, port.toInt());
     } else {
         if (uiConnectedState) {
+            netCtrlTx("QUIT\r\n");
+            netCtrlRx();
             sockClient.close();
         }
         viewSetUIDisconnected();
@@ -66,7 +68,14 @@ void MainWindow::fastConnectOrQuit() {
 void MainWindow::txCommandByWidgets() {
     auto cmd = ui->input_command->text().toStdString();
     if (!cmd.empty()) {
-        if (cmd.substr(0, 4) == "PASV") {
+        if (cmd.substr(0, 4) == "QUIT") {
+            netCtrlTx(ui->input_command->text().toStdString() + "\r\n");
+            netCtrlRx();
+            if (uiConnectedState) {
+                sockClient.close();
+            }
+            viewSetUIDisconnected();
+        } else if (cmd.substr(0, 4) == "PASV") {
             commandToExec = cmd;
             execFtpCmdPASV();
         } else if (cmd.substr(0, 4) == "PORT") {
