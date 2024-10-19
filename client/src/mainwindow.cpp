@@ -287,18 +287,26 @@ FTP_DEFINE_COMMAND(LIST) {
         return;
     }
 
-    sockData->waitForReadyRead();
-    auto *dataRecv = new char[8192 * 10];
-    auto ret = sockData->read(dataRecv, 8192 * 10);
-    if (ret <= 0) {
-        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "LIST 数据通道错误！");
-        msgbox.exec();
-        return;
+    std::string listDataStd;
+    auto *dataRecv = new char[65536];
+    while (true) {
+        if (sockData->bytesAvailable() == 0) {
+            sockData->waitForReadyRead();
+        }
+        auto ret = sockData->read(dataRecv, 65536);
+        if (ret == 0) {
+            break;
+        } else if (ret < 0) {
+            /* 错误 */
+            break;
+        }
+        listDataStd += std::string{dataRecv, static_cast<std::string::size_type>(ret)};
     }
-    dataRecv[ret] = 0;
+    auto *listData = strdup(listDataStd.c_str());
+
     char *line;
     int row = 0;
-    for (line = strtok(dataRecv, "\r\n"); line; line = strtok(nullptr, "\r\n")) {
+    for (line = strtok(listData, "\r\n"); line; line = strtok(nullptr, "\r\n")) {
         std::stringstream ss{line};
         std::string prop, links, owner, group, size, month, day, tm, filename;
         ss >> prop >> links >> owner >> group >> size >> month >> day >> tm >> filename;
@@ -328,6 +336,7 @@ FTP_DEFINE_COMMAND(LIST) {
         row++;
     }
     delete[] dataRecv;
+    free(listData);
     sockData->close();
     if (transferMode == PORT) {
         serverPort.close();
