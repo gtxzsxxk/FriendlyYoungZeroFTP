@@ -1,11 +1,13 @@
 #include "../include/mainwindow.h"
 #include "./ui_mainwindow.h"
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QTableWidgetItem>
 #include <QThread>
 #include <cstring>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
 
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -15,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->button_exec_cmd, &QPushButton::clicked, this, &MainWindow::txCommandByWidgets);
     connect(ui->button_upload, &QPushButton::clicked, this, &MainWindow::uploadFile);
     connect(ui->input_command, &QLineEdit::returnPressed, this, &MainWindow::txCommandByWidgets);
-    connect(ui->table_file, &QTableWidget::cellDoubleClicked, this, &MainWindow::retrieveFile);
+    connect(ui->table_file, &QTableWidget::cellDoubleClicked, this, &MainWindow::retrieveFileFromTable);
     connect(&sockClient, &QTcpSocket::errorOccurred, this, &MainWindow::networkErrorOccurred);
     connect(&sockClient, &QTcpSocket::connected, this, &MainWindow::networkConnected);
 
@@ -69,7 +71,7 @@ void MainWindow::txCommandByWidgets() {
     auto cmd = ui->input_command->text().toStdString();
     if (!cmd.empty()) {
         if (cmd.substr(0, 4) == "QUIT") {
-            netCtrlTx(ui->input_command->text().toStdString() + "\r\n");
+            netCtrlTx("QUIT\r\n");
             netCtrlRx();
             if (uiConnectedState) {
                 sockClient.close();
@@ -90,6 +92,9 @@ void MainWindow::txCommandByWidgets() {
         } else if (cmd.substr(0, 4) == "STOR") {
             commandToExec = cmd;
             execFtpCmdSTOR();
+        } else if (cmd.substr(0, 3) == "CWD") {
+            commandToExec = cmd;
+            execFtpCmdCWD();
         } else {
             netCtrlTx(ui->input_command->text().toStdString() + "\r\n");
             netCtrlRx();
@@ -99,7 +104,18 @@ void MainWindow::txCommandByWidgets() {
 }
 
 void MainWindow::uploadFile() {
+    auto fileName = QFileDialog::getOpenFileName(this, "Open File",
+                                                QString::fromStdString(std::filesystem::current_path().string()),
+                                                "All Files(*)");
 
+    if(fileName.isEmpty()) {
+        return;
+    }
+
+    commandToExec = "PASV";
+    execFtpCmdPASV();
+    commandToExec = "STOR " + fileName.toStdString();
+    execFtpCmdSTOR();
 }
 
 void MainWindow::retrieveFileFromTable(int row, int column) {
@@ -354,6 +370,7 @@ FTP_DEFINE_COMMAND(LIST) {
                     t = new QTableWidgetItem{QString::fromStdString(prop)};
                     break;
             }
+            t->setFlags(t->flags() & (~Qt::ItemIsEditable));
             ui->table_file->setItem(row, i, t);
         }
         row++;
@@ -499,6 +516,28 @@ FTP_DEFINE_COMMAND(STOR) {
         serverPort.close();
     }
     transferMode = NOT_SPECIFIED;
+}
+
+FTP_DEFINE_COMMAND(CWD) {
+    std::string dirName;
+    if (commandToExec.length() <= 5) {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "执行 CWD 的指令格式不对！");
+        msgbox.exec();
+        return;
+    }
+    dirName = commandToExec.substr(4);
+    netCtrlTx("CWD " + dirName + "\r\n");
+    auto resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "CWD 状态错误！");
+        msgbox.exec();
+        return;
+    }
+
+    commandToExec = "PASV";
+    execFtpCmdPASV();
+    commandToExec = "LIST";
+    execFtpCmdLIST();
 }
 
 void MainWindow::viewSetUILoggedIn(void) {
