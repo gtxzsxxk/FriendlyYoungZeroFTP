@@ -70,6 +70,8 @@ public slots:
 
     void uploadFile();
 
+    void cdUp();
+
     void retrieveFileFromTable(int row, int column);
 
     void networkErrorOccurred(QAbstractSocket::SocketError socketError);

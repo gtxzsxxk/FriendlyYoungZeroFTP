@@ -16,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->button_fastconnect, &QPushButton::clicked, this, &MainWindow::fastConnectOrQuit);
     connect(ui->button_exec_cmd, &QPushButton::clicked, this, &MainWindow::txCommandByWidgets);
     connect(ui->button_upload, &QPushButton::clicked, this, &MainWindow::uploadFile);
+    connect(ui->button_cdup, &QPushButton::clicked, this, &MainWindow::cdUp);
     connect(ui->input_command, &QLineEdit::returnPressed, this, &MainWindow::txCommandByWidgets);
     connect(ui->table_file, &QTableWidget::cellDoubleClicked, this, &MainWindow::retrieveFileFromTable);
     connect(&sockClient, &QTcpSocket::errorOccurred, this, &MainWindow::networkErrorOccurred);
@@ -30,6 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->table_file->setHorizontalHeaderLabels({"文件名", "修改时间", "大小", "所有者/组", "属性"});
     ui->table_file->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->input_directory->setFocusPolicy(Qt::NoFocus);
+    ui->input_directory->setText(QString::fromStdString(std::filesystem::current_path().string()));
 }
 
 MainWindow::~MainWindow() {
@@ -105,10 +107,10 @@ void MainWindow::txCommandByWidgets() {
 
 void MainWindow::uploadFile() {
     auto fileName = QFileDialog::getOpenFileName(this, "Open File",
-                                                QString::fromStdString(std::filesystem::current_path().string()),
-                                                "All Files(*)");
+                                                 QString::fromStdString(std::filesystem::current_path().string()),
+                                                 "All Files(*)");
 
-    if(fileName.isEmpty()) {
+    if (fileName.isEmpty()) {
         return;
     }
 
@@ -119,7 +121,7 @@ void MainWindow::uploadFile() {
 }
 
 void MainWindow::retrieveFileFromTable(int row, int column) {
-    if(ui->table_file->item(row, 4)->text()[0] == 'd') {
+    if (ui->table_file->item(row, 4)->text()[0] == 'd') {
         commandToExec = "CWD " + ui->table_file->item(row, 0)->text().toStdString();
         execFtpCmdCWD();
     } else {
@@ -556,4 +558,19 @@ void MainWindow::viewSetUIDisconnected(void) {
         ui->table_file->removeRow(0);
     }
     uiConnectedState = false;
+}
+
+void MainWindow::cdUp() {
+    netCtrlTx("CDUP\r\n");
+    auto resp = netCtrlRx();
+    if (resp[0] != '2') {
+        auto msgbox = QMessageBox(QMessageBox::Warning, "错误", "CDUP 状态错误！");
+        msgbox.exec();
+        return;
+    }
+
+    commandToExec = "PASV";
+    execFtpCmdPASV();
+    commandToExec = "LIST";
+    execFtpCmdLIST();
 }
