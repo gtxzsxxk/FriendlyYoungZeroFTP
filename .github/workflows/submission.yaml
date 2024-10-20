@@ -33,6 +33,7 @@ jobs:
         run: |
           cd client
           cd test
+          make
           output=$(python3 autograde_client.py)
           echo $output
           if echo "$output" | grep -q "Your client credit is 22"; then
