@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Server Autograde Test
-      - run: |
+        run: |
           cd server
           output=$(python3 autograde_server.py)
           echo $output
@@ -30,7 +30,7 @@ jobs:
           cd ..
 
       - name: Client Autograde Test
-      - run: |
+        run: |
           cd client
           cd test
           output=$(python3 autograde_client.py)
