@@ -38,35 +38,36 @@ int main() {
   /* establish the server port number - we must use network byte order! */
   server.sin_port = htons(9876);
 
-  /* read everything possible */
-  fgets(buf, MAXBUF, stdin);
-  size_t buf_len = strlen(buf);
-
   /* send it to the echo server */
+  int counter = 0;
+  while(counter <= 50) {
+    sprintf(buf, "%d", counter++);
+    size_t buf_len = strlen(buf);
+    int n_sent = sendto(sk, buf, buf_len, 0,
+                    (struct sockaddr*) &server, sizeof(server));
 
-  int n_sent = sendto(sk, buf, buf_len, 0,
-                  (struct sockaddr*) &server, sizeof(server));
+    if (n_sent < 0) {
+      perror("Problem sending data");
+      exit(1);
+    }
 
-  if (n_sent < 0) {
-    perror("Problem sending data");
-    exit(1);
-  }
+    if (n_sent != buf_len) {
+      printf("Sendto sent %d bytes\n", n_sent);
+    }
 
-  if (n_sent != buf_len) {
-    printf("Sendto sent %d bytes\n", n_sent);
-  }
-
-  /* Wait for a reply (from anyone) */
-  int n_read = recvfrom(sk, buf, MAXBUF, 0, NULL, NULL);
-  if (n_read < 0) {
-    perror("Problem in recvfrom");
-    exit(1);
-  }
-
-  /* send what we got back to stdout */
-  if (write(STDOUT_FILENO, buf, n_read) < 0) {
-    perror("Problem writing to stdout");
-    exit(1);
+    /* Wait for a reply (from anyone) */
+    int n_read = recvfrom(sk, buf, MAXBUF, 0, NULL, NULL);
+    if (n_read < 0) {
+      perror("Problem in recvfrom");
+      exit(1);
+    }
+    buf[n_read] = '\n';
+    n_read++;
+    /* send what we got back to stdout */
+    if (write(STDOUT_FILENO, buf, n_read) < 0) {
+      perror("Problem writing to stdout");
+      exit(1);
+    }
   }
   return 0;
 }

@@ -9,11 +9,11 @@
 #include <netdb.h>      /* gethostbyname */
 #include <string.h>
 
-#define MAXBUF 1024*1024
+#define MAXBUF 65536
 
 void echo(int sd) {
     char bufin[MAXBUF];
-    char cnt_buf[MAXBUF];
+    char cnt_buf[MAXBUF * 2];
     struct sockaddr_in remote;
     int counter = 0;
 
@@ -29,7 +29,7 @@ void echo(int sd) {
         perror("Error receiving data");
       } else {
         bufin[n] = 0;
-        sprintf(cnt_buf, "%d %s\0", ++counter, bufin);
+        sprintf(cnt_buf, "%d %s", counter++, bufin);
         /* Got something, just send it back */
         sendto(sd, cnt_buf, strlen(cnt_buf), 0, (struct sockaddr *)&remote, len);
       }
