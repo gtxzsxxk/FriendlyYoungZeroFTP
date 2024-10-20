@@ -64,8 +64,8 @@ jobs:
           cp $(pwd)/client/test -r ${SUBMIT_FOLDER}/client/src/test
           cp $(pwd)/client/CMakeLists.txt ${SUBMIT_FOLDER}/client/src
 
-      - name: Upload Udp Answer
+      - name: Generate Submission
         uses: actions/upload-artifact@v3
         with:
           name: semi-submission
-          path: ${SUBMIT_FOLDER}
+          path: studentID
