@@ -26,6 +26,7 @@ jobs:
             echo "Server Autograde Test Passed!"
           else
             echo "Server Autograde Test Failed!"
+            exit 1
           fi
           cd ..
 
@@ -40,6 +41,7 @@ jobs:
             echo "Client Autograde Test Passed!"
           else
             echo "Client Autograde Test Failed!"
+            exit 1
           fi
           cd ..
           cd ..
