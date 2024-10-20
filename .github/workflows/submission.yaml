@@ -37,8 +37,8 @@ jobs:
         run: |
           cd ${DOC_PATH}
           pandoc report.md --template=template.latex -o report.pdf --pdf-engine=xelatex
-          cp report.pdf ${SUBMIT_FOLDER}
           cd ..
+          cp ${DOC_PATH}/report.pdf ${SUBMIT_FOLDER}
 
       - name: Copy Udp answers
         run: |
