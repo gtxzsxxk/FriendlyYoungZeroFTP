@@ -17,8 +17,8 @@ void usage(int argc, char **argv) {
 
 int main(int argc, char **argv) {
     int assigned_port = 0, assigned_root = 0;
-    int port = 0;
-    char root_path[256];
+    int port = 21;
+    char root_path[256] = "/tmp";
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-port")) {
             if (i + 1 < argc) {
@@ -46,13 +46,6 @@ int main(int argc, char **argv) {
             usage(argc, argv);
             return 1;
         }
-    }
-    if (!assigned_port && !assigned_root) {
-        port = 21;
-        strcpy(root_path, "/tmp");
-    } else if (!assigned_port || !assigned_root) {
-        usage(argc, argv);
-        return 1;
     }
 
     /* 获得绝对路径 */
