@@ -29,12 +29,16 @@ jobs:
 
       - name: Generate Udp answer PDF
         run: |
-          pandoc ${DOC_PATH}/udpAnswer.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/udpAnswer.pdf --pdf-engine=xelatex
+          cd ${DOC_PATH}
+          pandoc udpAnswer.md --template=template.latex -o udpAnswer.pdf --pdf-engine=xelatex
+          cd ..
 
       - name: Generate whole project report PDF
         run: |
-          pandoc ${DOC_PATH}/report.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/report.pdf --pdf-engine=xelatex
-          cp ${DOC_PATH}/report.pdf ${SUBMIT_FOLDER}
+          cd ${DOC_PATH}
+          pandoc report.md --template=template.latex -o report.pdf --pdf-engine=xelatex
+          cp report.pdf ${SUBMIT_FOLDER}
+          cd ..
 
       - name: Copy Udp answers
         run: |
