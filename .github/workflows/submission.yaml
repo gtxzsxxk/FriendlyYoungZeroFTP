@@ -21,8 +21,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex texlive-lang-chinese
 
-      - name: Set DOC_PATH
-        run: echo "DOC_PATH=doc" >> $GITHUB_ENV
+      - name: Set DOC_PATH and SUBMIT_FOLDER
+        run: |
+          echo "DOC_PATH=doc" >> $GITHUB_ENV
+          mkdir -p studentID
+          echo "SUBMIT_FOLDER=studentID" >> $GITHUB_ENV
 
       - name: Generate Udp answer PDF
         run: |
@@ -30,8 +33,6 @@ jobs:
 
       - name: Generate whole project report PDF
         run: |
-          mkdir -p studentID
-          echo "SUBMIT_FOLDER=studentID" >> $GITHUB_ENV
           pandoc ${DOC_PATH}/report.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/report.pdf --pdf-engine=xelatex
           cp ${DOC_PATH}/report.pdf ${SUBMIT_FOLDER}
 
