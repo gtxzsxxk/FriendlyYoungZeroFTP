@@ -20,7 +20,7 @@ jobs:
         run: |
           cd server
           pip3 install pyftpdlib
-          output=$(python3 autograde_server.py)
+          output=$(sudo python3 autograde_server.py)
           echo $output
           if echo "$output" | grep -q "Your credit is 28"; then
             echo "Server Autograde Test Passed!"
