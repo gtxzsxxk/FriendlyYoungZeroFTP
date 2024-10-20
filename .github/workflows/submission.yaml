@@ -81,12 +81,12 @@ jobs:
 
       - name: Copy Server Source Code
         run: |
-          mkdir -p ${SUBMIT_FOLDER}/server/include
-          mkdir -p ${SUBMIT_FOLDER}/server/src
-          cp $(pwd)/server/include/* -r ${SUBMIT_FOLDER}/server/include
-          cp $(pwd)/server/src/* -r ${SUBMIT_FOLDER}/server/src
-          cp $(pwd)/server/autograde_server.py ${SUBMIT_FOLDER}/server
-          cp $(pwd)/server/Makefile ${SUBMIT_FOLDER}/server
+          mkdir -p ${SUBMIT_FOLDER}/server/src/include
+          mkdir -p ${SUBMIT_FOLDER}/server/src/src
+          cp $(pwd)/server/include/* -r ${SUBMIT_FOLDER}/server/src/include
+          cp $(pwd)/server/src/* -r ${SUBMIT_FOLDER}/server/src/src
+          cp $(pwd)/server/autograde_server.py ${SUBMIT_FOLDER}/server/src
+          cp $(pwd)/server/Makefile ${SUBMIT_FOLDER}/server/src
 
       - name: Copy Client Source Code
         run: |
