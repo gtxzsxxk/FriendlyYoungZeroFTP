@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build:
+  semi-submit:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,11 @@ jobs:
         run: |
           pandoc ${DOC_PATH}/ANSWER.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/ANSWER.pdf --pdf-engine=xelatex
 
+      - name: Generate report.pdf
+        run: |
+          pandoc ${DOC_PATH}/report.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/report.pdf --pdf-engine=xelatex
+          cp ${DOC_PATH}/ANSWER.pdf ${SUBMIT_FOLDER}
+
       - name: Copy Udp answers
         run: |
           mkdir -p $(pwd)/studentID
@@ -38,6 +43,25 @@ jobs:
           cp $(pwd)/udp/c/server.c ${SUBMIT_FOLDER}/udp/src
           cp $(pwd)/udp/c/Makefile ${SUBMIT_FOLDER}/udp/src
           cp ${DOC_PATH}/ANSWER.pdf ${SUBMIT_FOLDER}/udp/doc
+
+      - name: Copy Server Source Code
+        run: |
+          mkdir -p ${SUBMIT_FOLDER}/server/include
+          mkdir -p ${SUBMIT_FOLDER}/server/src
+          cp $(pwd)/server/include -r ${SUBMIT_FOLDER}/server/include
+          cp $(pwd)/server/src -r ${SUBMIT_FOLDER}/server/src
+          cp $(pwd)/server/autograde_server.py ${SUBMIT_FOLDER}/server
+          cp $(pwd)/server/Makefile ${SUBMIT_FOLDER}/server
+
+      - name: Copy Client Source Code
+        run: |
+          mkdir -p ${SUBMIT_FOLDER}/client/src/include
+          mkdir -p ${SUBMIT_FOLDER}/client/src/src
+          mkdir -p ${SUBMIT_FOLDER}/client/src/test
+          cp $(pwd)/client/include -r ${SUBMIT_FOLDER}/client/src/include
+          cp $(pwd)/client/src -r ${SUBMIT_FOLDER}/client/src/src
+          cp $(pwd)/client/test -r ${SUBMIT_FOLDER}/client/src/test
+          cp $(pwd)/client/CMakeLists.txt ${SUBMIT_FOLDER}/client/src
 
       - name: Upload Udp Answer
         uses: actions/upload-artifact@v3
