@@ -18,22 +18,20 @@ jobs:
 
       - name: Install Pandoc and Texlive
         run: |
-          pwd
-          ls -la
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-lang-chinese
 
       - name: Set DOC_PATH
         run: echo "DOC_PATH=doc" >> $GITHUB_ENV
 
-      - name: Generate ANSWER.pdf
+      - name: Generate Udp answer PDF
         run: |
-          pandoc ${DOC_PATH}/ANSWER.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/ANSWER.pdf --pdf-engine=xelatex
+          pandoc ${DOC_PATH}/udpAnswer.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/udpAnswer.pdf --pdf-engine=xelatex
 
-      - name: Generate report.pdf
+      - name: Generate whole project report PDF
         run: |
           pandoc ${DOC_PATH}/report.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/report.pdf --pdf-engine=xelatex
-          cp ${DOC_PATH}/ANSWER.pdf ${SUBMIT_FOLDER}
+          cp ${DOC_PATH}/report.pdf ${SUBMIT_FOLDER}
 
       - name: Copy Udp answers
         run: |
@@ -44,7 +42,7 @@ jobs:
           cp $(pwd)/udp/c/client.c ${SUBMIT_FOLDER}/udp/src
           cp $(pwd)/udp/c/server.c ${SUBMIT_FOLDER}/udp/src
           cp $(pwd)/udp/c/Makefile ${SUBMIT_FOLDER}/udp/src
-          cp ${DOC_PATH}/ANSWER.pdf ${SUBMIT_FOLDER}/udp/doc
+          cp ${DOC_PATH}/udpAnswer.pdf ${SUBMIT_FOLDER}/udp/doc
 
       - name: Copy Server Source Code
         run: |
