@@ -189,7 +189,7 @@ FTP_DEFINE_COMMAND(PASV) {
     auto infoEnd = resp.find(")");
     auto infoStr = resp.substr(infoStart, infoEnd - infoStart);
     std::string hostAddr;
-    int port, cnt = 0;
+    int port = 0, cnt = 0;
     auto infoStrDup = strdup(infoStr.c_str());
     char *part;
     for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
@@ -226,7 +226,7 @@ FTP_DEFINE_COMMAND(PORT) {
     char *cmdData = strtok(portCmd, " ");
     cmdData = strtok(nullptr, " ");
     std::string hostAddr;
-    int port, cnt = 0;
+    int port = 0, cnt = 0;
     auto infoStrDup = strdup(cmdData);
     char *part;
     for (part = strtok(infoStrDup, ","); part; part = strtok(nullptr, ",")) {
