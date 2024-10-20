@@ -22,7 +22,7 @@ jobs:
           sudo apt-get install -y pandoc texlive-lang-chinese
 
       - name: Set DOC_PATH
-        run: echo "DOC_PATH=$(pwd)/doc" >> $GITHUB_ENV
+        run: echo "DOC_PATH=doc" >> $GITHUB_ENV
 
       - name: Generate ANSWER.pdf
         run: |
@@ -35,8 +35,8 @@ jobs:
 
       - name: Copy Udp answers
         run: |
-          mkdir -p $(pwd)/studentID
-          echo "SUBMIT_FOLDER=$(pwd)/studentID" >> $GITHUB_ENV
+          mkdir -p studentID
+          echo "SUBMIT_FOLDER=studentID" >> $GITHUB_ENV
           mkdir -p ${SUBMIT_FOLDER}/udp/src
           mkdir -p ${SUBMIT_FOLDER}/udp/doc
           cp $(pwd)/udp/c/client.c ${SUBMIT_FOLDER}/udp/src
