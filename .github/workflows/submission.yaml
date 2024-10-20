@@ -49,8 +49,8 @@ jobs:
         run: |
           mkdir -p ${SUBMIT_FOLDER}/server/include
           mkdir -p ${SUBMIT_FOLDER}/server/src
-          cp $(pwd)/server/include -r ${SUBMIT_FOLDER}/server/include
-          cp $(pwd)/server/src -r ${SUBMIT_FOLDER}/server/src
+          cp $(pwd)/server/include/* -r ${SUBMIT_FOLDER}/server/include
+          cp $(pwd)/server/src/* -r ${SUBMIT_FOLDER}/server/src
           cp $(pwd)/server/autograde_server.py ${SUBMIT_FOLDER}/server
           cp $(pwd)/server/Makefile ${SUBMIT_FOLDER}/server
 
@@ -59,10 +59,12 @@ jobs:
           mkdir -p ${SUBMIT_FOLDER}/client/src/include
           mkdir -p ${SUBMIT_FOLDER}/client/src/src
           mkdir -p ${SUBMIT_FOLDER}/client/src/test
-          cp $(pwd)/client/include -r ${SUBMIT_FOLDER}/client/src/include
-          cp $(pwd)/client/src -r ${SUBMIT_FOLDER}/client/src/src
-          cp $(pwd)/client/test -r ${SUBMIT_FOLDER}/client/src/test
+          cp $(pwd)/client/include/* -r ${SUBMIT_FOLDER}/client/src/include
+          cp $(pwd)/client/src/* -r ${SUBMIT_FOLDER}/client/src/src
+          cp $(pwd)/client/test/* -r ${SUBMIT_FOLDER}/client/src/test
           cp $(pwd)/client/CMakeLists.txt ${SUBMIT_FOLDER}/client/src
+          touch ${SUBMIT_FOLDER}/PLACE_DEMO_MP4_HERE
+          touch ${SUBMIT_FOLDER}/client/PLACE_CLIENT_EXE_HERE
 
       - name: Generate Submission
         uses: actions/upload-artifact@v3
