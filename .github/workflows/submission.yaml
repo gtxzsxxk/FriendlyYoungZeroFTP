@@ -1,0 +1,46 @@
+name: Generate Submission Zip
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Pandoc and Texlive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-lang-chinese
+
+      - name: Set DOC_PATH
+        run: echo "DOC_PATH=$(pwd)/doc" >> $GITHUB_ENV
+
+      - name: Generate ANSWER.pdf
+        run: |
+          pandoc ${DOC_PATH}/ANSWER.md --template=${DOC_PATH}/template.latex -o ${DOC_PATH}/ANSWER.pdf --pdf-engine=xelatex
+
+      - name: Copy Udp answers
+        run: |
+          mkdir -p $(pwd)/studentID
+          echo "SUBMIT_FOLDER=$(pwd)/studentID" >> $GITHUB_ENV
+          mkdir -p ${SUBMIT_FOLDER}/udp/src
+          mkdir -p ${SUBMIT_FOLDER}/udp/doc
+          cp $(pwd)/udp/c/client.c ${SUBMIT_FOLDER}/udp/src
+          cp $(pwd)/udp/c/server.c ${SUBMIT_FOLDER}/udp/src
+          cp $(pwd)/udp/c/Makefile ${SUBMIT_FOLDER}/udp/src
+          cp ${DOC_PATH}/ANSWER.pdf ${SUBMIT_FOLDER}/udp/doc
+
+      - name: Upload Udp Answer
+        uses: actions/upload-artifact@v3
+        with:
+          name: semi-submission
+          path: ${SUBMIT_FOLDER}
