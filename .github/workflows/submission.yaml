@@ -16,6 +16,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Server Autograde Test
+      - run: |
+          cd server
+          output=$(python3 autograde_server.py)
+          echo $output
+          if echo "$output" | grep -q "Your credit is 28"; then
+            echo "Server Autograde Test Passed!"
+          else
+            echo "Server Autograde Test Failed!"
+            exit 1
+          fi
+          cd ..
+
+      - name: Client Autograde Test
+      - run: |
+          cd client
+          cd test
+          output=$(python3 autograde_client.py)
+          echo $output
+          if echo "$output" | grep -q "Your client credit is 22"; then
+            echo "Client Autograde Test Passed!"
+          else
+            echo "Client Autograde Test Failed!"
+            exit 1
+          fi
+          cd ..
+          cd ..
+
       - name: Install Pandoc and Texlive
         run: |
           sudo apt-get update
