@@ -16,13 +16,11 @@ void usage(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    int assigned_port = 0, assigned_root = 0;
     int port = 21;
     char root_path[256] = "/tmp";
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-port")) {
             if (i + 1 < argc) {
-                assigned_port = 1;
                 port = atoi(argv[i + 1]);
                 if (port == 0) {
                     printf("server error: illegal port %d\n", port);
@@ -35,7 +33,6 @@ int main(int argc, char **argv) {
             }
         } else if (!strcmp(argv[i], "-root")) {
             if (i + 1 < argc) {
-                assigned_root = 1;
                 strcpy(root_path, argv[i + 1]);
                 i++;
             } else {
