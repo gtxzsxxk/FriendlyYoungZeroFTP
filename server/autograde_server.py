@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # Test 1
     test.test_public()
     # Test 2
-    port = random.randint(2000, 3000)
+    port = random.randint(20000, 30000)
     directory = ''.join(random.choice(string.ascii_letters) for x in range(10))
     if os.path.isdir(directory):
         shutil.rmtree(directory)
