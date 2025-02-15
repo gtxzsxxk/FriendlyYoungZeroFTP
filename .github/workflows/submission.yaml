@@ -101,7 +101,7 @@ jobs:
           touch ${SUBMIT_FOLDER}/client/PLACE_CLIENT_EXE_HERE
 
       - name: Generate Submission
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: semi-submission
           path: studentID

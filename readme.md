@@ -15,9 +15,9 @@ title: 基于 POLL 机制与零拷贝的高性能 FTP 服务器实现
 
 尽管EPOLL在Linux系统上具有更高的性能，但为了实现更好的跨平台兼容性，我们选择了POLL机制。POLL在Linux和macOS等操作系统上都有良好的支持，使用POLL可以使我们的FTP服务器在不同的平台上运行，而无需针对特定平台进行额外的适配。
 
-![vsftpd的传输速率](doc/vsftpd_speed.png){height=50%}
+![vsftpd的传输速率](doc/vsftpd_speed.png)
 
-![我实现的FTP服务器的传输速率](doc/fyz_speed.png){height=50%}
+![我实现的FTP服务器的传输速率](doc/fyz_speed.png)
 
 # Implementation
 
